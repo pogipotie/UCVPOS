@@ -21,11 +21,55 @@ class SaleSession:
     cart: List[CartItem] = field(default_factory=list)
     started_at: datetime = field(default_factory=datetime.now)
     cashier_name: Optional[str] = None
+    discount_type: Optional[str] = None  # 'SC', 'PWD', or None
+    discount_id: Optional[str] = None    # SC/PWD ID number
     
     @property
     def total(self) -> float:
-        """Calculate cart total"""
+        """Calculate cart total (VAT-inclusive, prices already include VAT)"""
         return sum(item.subtotal for item in self.cart)
+    
+    @property
+    def is_discounted(self) -> bool:
+        """Check if SC/PWD discount is applied"""
+        return self.discount_type in ('SC', 'PWD')
+    
+    @property
+    def vat_exempt_total(self) -> float:
+        """VAT-exempt price (for SC/PWD: remove VAT first)"""
+        return self.total / 1.12
+    
+    @property
+    def sc_pwd_discount(self) -> float:
+        """20% SC/PWD discount amount (applied to VAT-exempt price)"""
+        if not self.is_discounted:
+            return 0.0
+        return self.vat_exempt_total * 0.20
+    
+    @property
+    def final_total(self) -> float:
+        """Final amount to pay after SC/PWD discount"""
+        if self.is_discounted:
+            return self.vat_exempt_total - self.sc_pwd_discount
+        return self.total
+    
+    @property
+    def vat_amount(self) -> float:
+        """Extract VAT from total (VAT-inclusive calculation)
+        For SC/PWD: VAT is exempt (returns 0)
+        """
+        if self.is_discounted:
+            return 0.0  # VAT exempt for SC/PWD
+        from services.settings_service import settings_service
+        tax_rate = settings_service.get('financial', 'tax_rate') or 12.0
+        if tax_rate <= 0:
+            return 0.0
+        return self.total - (self.total / (1 + tax_rate / 100))
+    
+    @property
+    def net_amount(self) -> float:
+        """Amount without VAT (for receipt display)"""
+        return self.total - self.vat_amount
     
     @property
     def item_count(self) -> int:

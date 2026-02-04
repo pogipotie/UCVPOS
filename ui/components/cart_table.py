@@ -83,32 +83,56 @@ class CartTable(QWidget):
         
         layout.addWidget(self.table, 1)
         
-        # Total section
+        # Total section with VAT breakdown
         total_frame = QWidget()
         total_frame.setObjectName("highlightFrame")
         total_frame.setStyleSheet("""
             QWidget#highlightFrame {
                 background-color: #1F2B47;
                 border: 2px solid #0D7377;
-                border-radius: 10px;
+                border-radius: 0px;
                 padding: 10px;
             }
         """)
-        total_layout = QHBoxLayout(total_frame)
+        total_layout = QVBoxLayout(total_frame)
+        total_layout.setSpacing(5)
         
+        # Net Amount (without VAT)
+        net_row = QHBoxLayout()
+        net_text = QLabel("Net Amount:")
+        net_text.setStyleSheet("font-size: 14px; color: #B0B0B0;")
+        net_row.addWidget(net_text)
+        net_row.addStretch()
+        self.net_label = QLabel("₱0.00")
+        self.net_label.setStyleSheet("font-size: 14px; color: #B0B0B0;")
+        net_row.addWidget(self.net_label)
+        total_layout.addLayout(net_row)
+        
+        # VAT Amount
+        vat_row = QHBoxLayout()
+        vat_text = QLabel("VAT (12%):")
+        vat_text.setStyleSheet("font-size: 14px; color: #B0B0B0;")
+        vat_row.addWidget(vat_text)
+        vat_row.addStretch()
+        self.vat_label = QLabel("₱0.00")
+        self.vat_label.setStyleSheet("font-size: 14px; color: #B0B0B0;")
+        vat_row.addWidget(self.vat_label)
+        total_layout.addLayout(vat_row)
+        
+        # Total (VAT-inclusive)
+        total_row = QHBoxLayout()
         total_text = QLabel("TOTAL:")
         total_text.setStyleSheet("font-size: 20px; font-weight: bold;")
-        total_layout.addWidget(total_text)
-        
-        total_layout.addStretch()
-        
+        total_row.addWidget(total_text)
+        total_row.addStretch()
         self.total_label = QLabel("₱0.00")
         self.total_label.setObjectName("totalLabel")
-        total_layout.addWidget(self.total_label)
+        total_row.addWidget(self.total_label)
+        total_layout.addLayout(total_row)
         
         layout.addWidget(total_frame)
     
-    def update_cart(self, items: List[CartItem]):
+    def update_cart(self, items: List[CartItem], discount_type: str = None, is_discounted: bool = False):
         """Update the cart display with new items"""
         self.cart_items = items
         self.table.setRowCount(len(items))
@@ -172,8 +196,33 @@ class CartTable(QWidget):
             
             self.table.setCellWidget(row, 4, btn_widget)
         
-        # Update totals
-        self.total_label.setText(f"₱{total:.2f}")
+        # Update totals based on discount status
+        if is_discounted:
+            # SC/PWD: VAT exempt + 20% discount
+            vat_exempt_total = total / 1.12
+            sc_pwd_discount = vat_exempt_total * 0.20
+            final_total = vat_exempt_total - sc_pwd_discount
+            
+            # Show VAT-exempt amount as "Net"
+            self.net_label.setText(f"₱{vat_exempt_total:,.2f}")
+            # Show discount amount (VAT saved + 20%)
+            discount_label = "SC" if discount_type == 'SC' else "PWD"
+            self.vat_label.setText(f"-₱{sc_pwd_discount:,.2f} ({discount_label} 20%)")
+            self.vat_label.setStyleSheet("font-size: 14px; color: #FFB800; font-weight: bold;")
+            self.total_label.setText(f"₱{final_total:,.2f}")
+        else:
+            # Normal: Show VAT breakdown
+            from services.settings_service import settings_service
+            tax_rate = settings_service.get('financial', 'tax_rate') or 12.0
+            
+            vat_amount = total - (total / (1 + tax_rate / 100)) if tax_rate > 0 else 0
+            net_amount = total - vat_amount
+            
+            self.net_label.setText(f"₱{net_amount:,.2f}")
+            self.vat_label.setText(f"₱{vat_amount:,.2f}")
+            self.vat_label.setStyleSheet("font-size: 14px; color: #B0B0B0;")
+            self.total_label.setText(f"₱{total:,.2f}")
+        
         self.item_count_label.setText(f"{sum(i.quantity for i in items)} items")
     
     def _create_quantity_widget(self, product_id: int, quantity: int) -> QWidget:
@@ -244,6 +293,8 @@ class CartTable(QWidget):
         """Clear the cart display"""
         self.table.setRowCount(0)
         self.cart_items = []
+        self.net_label.setText("₱0.00")
+        self.vat_label.setText("₱0.00")
         self.total_label.setText("₱0.00")
         self.item_count_label.setText("0 items")
     

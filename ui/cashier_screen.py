@@ -150,14 +150,57 @@ class CashierScreen(QWidget):
         self.remove_btn.setMinimumHeight(45)
         self.remove_btn.clicked.connect(self.remove_selected_item)
         row2.addWidget(self.remove_btn)
-        
-        self.discount_btn = QPushButton("Discount") # Placeholder
-        self.discount_btn.setMinimumHeight(45)
-        self.discount_btn.setEnabled(False) 
-        row2.addWidget(self.discount_btn)
         actions_layout.addLayout(row2)
         
         right_layout.addWidget(actions_group)
+        
+        # 2. SC/PWD Discount Section
+        from PyQt6.QtWidgets import QRadioButton, QButtonGroup
+        
+        discount_group = QGroupBox("SC/PWD Discount (RA 9994/10754)")
+        discount_group.setStyleSheet("""
+            QGroupBox {
+                color: #FFB800;
+                font-weight: bold;
+                border: 1px solid #FFB800;
+                border-radius: 0px;
+                margin-top: 15px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }
+        """)
+        discount_layout = QVBoxLayout(discount_group)
+        discount_layout.setSpacing(8)
+        
+        # Radio buttons for discount type
+        self.discount_button_group = QButtonGroup(self)
+        
+        self.no_discount_radio = QRadioButton("None")
+        self.no_discount_radio.setChecked(True)
+        self.no_discount_radio.setStyleSheet("color: #CCCCCC; font-size: 14px;")
+        
+        self.sc_radio = QRadioButton("Senior Citizen (20% + VAT Exempt)")
+        self.sc_radio.setStyleSheet("color: #03DAC6; font-size: 14px;")
+        
+        self.pwd_radio = QRadioButton("PWD (20% + VAT Exempt)")
+        self.pwd_radio.setStyleSheet("color: #03DAC6; font-size: 14px;")
+        
+        self.discount_button_group.addButton(self.no_discount_radio, 0)
+        self.discount_button_group.addButton(self.sc_radio, 1)
+        self.discount_button_group.addButton(self.pwd_radio, 2)
+        
+        discount_layout.addWidget(self.no_discount_radio)
+        discount_layout.addWidget(self.sc_radio)
+        discount_layout.addWidget(self.pwd_radio)
+        
+        # Connect radio buttons to handler
+        self.discount_button_group.buttonClicked.connect(self.on_discount_changed)
+        
+        right_layout.addWidget(discount_group)
         
         right_layout.addStretch()
         
@@ -398,8 +441,17 @@ class CashierScreen(QWidget):
             self.show_status("Cart is empty", "error")
             return
         
-        # Open payment dialog
-        dialog = PaymentDialog(session.total, self)
+        # Get the amount to pay (final_total if discounted, else total)
+        amount_to_pay = session.final_total if session.is_discounted else session.total
+        
+        # Open payment dialog with discount info
+        dialog = PaymentDialog(
+            amount_to_pay, 
+            self,
+            discount_type=session.discount_type,
+            discount_amount=session.sc_pwd_discount,
+            original_total=session.total
+        )
         
         if dialog.exec():
             amount_tendered = dialog.get_amount_tendered()
@@ -416,7 +468,15 @@ class CashierScreen(QWidget):
                 # Show success dialog (Premium UI)
                 # Note: session.cart still holds items because we grabbed the reference before completion
                 success_dialog = SaleSuccessDialog(
-                    sale_id, session.total, amount_tendered, change, session.cart, self
+                    sale_id, 
+                    amount_to_pay,  # Use discounted total
+                    amount_tendered, 
+                    change, 
+                    session.cart, 
+                    self,
+                    discount_type=session.discount_type,
+                    discount_amount=session.sc_pwd_discount,
+                    original_total=session.total
                 )
                 success_dialog.exec()
                 
@@ -430,11 +490,13 @@ class CashierScreen(QWidget):
         """Update the cart table with current session items"""
         session = sales_service.get_current_session()
         if session:
-            self.cart_table.update_cart(session.cart)
+            # Pass discount info to cart table
+            self.cart_table.update_cart(session.cart, session.discount_type, session.is_discounted)
             
-            # Update total display
+            # Update total display (use final_total if discount applied)
             if hasattr(self, 'display_total_label'):
-                self.display_total_label.setText(f"₱{session.total:,.2f}")
+                display_amount = session.final_total if session.is_discounted else session.total
+                self.display_total_label.setText(f"₱{display_amount:,.2f}")
     
     def show_status(self, message: str, status_type: str = "info"):
         """Show status message"""
@@ -464,7 +526,29 @@ class CashierScreen(QWidget):
         self.status_label.setText("")
         self.status_label.setStyleSheet("")
     
+    def on_discount_changed(self, button):
+        """Handle SC/PWD discount selection change"""
+        session = sales_service.get_current_session()
+        if not session:
+            return
+        
+        # Map button to discount type
+        button_id = self.discount_button_group.id(button)
+        if button_id == 1:
+            session.discount_type = 'SC'
+            self.show_status("Senior Citizen discount applied (20% + VAT Exempt)", "success")
+        elif button_id == 2:
+            session.discount_type = 'PWD'
+            self.show_status("PWD discount applied (20% + VAT Exempt)", "success")
+        else:
+            session.discount_type = None
+            self.show_status("Discount removed", "info")
+        
+        # Update cart display
+        self.update_cart_display()
+    
     def showEvent(self, event):
         """Focus barcode input when screen becomes visible"""
         super().showEvent(event)
         QTimer.singleShot(100, self.barcode_input.focus_input)
+

@@ -206,7 +206,7 @@ class MainWindow(QMainWindow):
                     QPushButton {{
                         background-color: transparent;
                         color: #B0B0B0;
-                        text-align: center;
+                        text-align: left;
                         padding: 10px 15px;
                         border: none;
                         border-radius: 0px;
@@ -231,7 +231,7 @@ class MainWindow(QMainWindow):
                 QPushButton {
                     background-color: transparent;
                     color: #B0B0B0;
-                    text-align: center;
+                    text-align: left;
                     padding: 10px 15px;
                     border: none;
                     border-radius: 0px;

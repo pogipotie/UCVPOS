@@ -12,16 +12,29 @@ from PyQt6.QtGui import QFont
 class PaymentDialog(QDialog):
     """Dialog for processing cash payment"""
     
-    def __init__(self, total_amount: float, parent=None):
+    def __init__(self, total_amount: float, parent=None, discount_type: str = None, discount_amount: float = 0.0, original_total: float = None):
         super().__init__(parent)
-        self.total_amount = total_amount
+        self.total_amount = total_amount  # This is final_total if discounted
+        self.discount_type = discount_type
+        self.discount_amount = discount_amount
+        self.original_total = original_total or total_amount
         self.amount_tendered = 0.0
         self.setup_ui()
+
     
     def setup_ui(self):
         self.setWindowTitle("Process Payment")
-        self.resize(500, 680)
-        self.setMinimumSize(450, 600)
+        # Responsive sizing
+        screen = self.screen().availableGeometry()
+        width = int(screen.width() * 0.40)
+        height = int(screen.height() * 0.85)
+        
+        # Constraints
+        width = max(450, min(width, 600))  # Max width 600px
+        height = max(700, min(height, 900)) # Max height 900px
+        
+        self.resize(width, height)
+        self.setMinimumSize(450, 700)
         self.setModal(True)
         self.setStyleSheet("background-color: #1A1A2E; color: white;")
         
@@ -29,20 +42,107 @@ class PaymentDialog(QDialog):
         layout.setSpacing(15)
         layout.setContentsMargins(20, 20, 20, 20)
         
-        # Total display
+        # Total display frame
         total_frame = QFrame()
-        total_frame.setStyleSheet("""
-            QFrame {
-                background-color: #1F2B47;
-                border: 2px solid #0D7377;
-                border-radius: 12px;
-                padding: 10px;
-            }
-        """)
-        total_layout = QVBoxLayout(total_frame)
-        total_layout.setSpacing(2)
         
-        total_label = QLabel("TOTAL AMOUNT")
+        # Style based on discount type
+        if self.discount_type:
+            total_frame.setStyleSheet("""
+                QFrame {
+                    background-color: #1F2B47;
+                    border: 2px solid #FFB800;
+                    border-radius: 0px;
+                    padding: 10px;
+                }
+            """)
+        else:
+            total_frame.setStyleSheet("""
+                QFrame {
+                    background-color: #1F2B47;
+                    border: 2px solid #0D7377;
+                    border-radius: 0px;
+                    padding: 10px;
+                }
+            """)
+        
+        total_layout = QVBoxLayout(total_frame)
+        total_layout.setSpacing(5)
+        
+        if self.discount_type:
+            # SC/PWD Discount Header
+            discount_header = QLabel(f"{'SENIOR CITIZEN' if self.discount_type == 'SC' else 'PWD'} DISCOUNT")
+            discount_header.setStyleSheet("color: #FFB800; font-size: 14px; font-weight: bold; letter-spacing: 1px;")
+            discount_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            total_layout.addWidget(discount_header)
+            
+            # Original Price
+            orig_row = QHBoxLayout()
+            orig_label = QLabel("Original Price:")
+            orig_label.setStyleSheet("color: #888888; font-size: 14px;")
+            orig_row.addWidget(orig_label)
+            orig_row.addStretch()
+            orig_value = QLabel(f"₱{self.original_total:,.2f}")
+            orig_value.setStyleSheet("color: #888888; font-size: 14px; text-decoration: line-through;")
+            orig_row.addWidget(orig_value)
+            total_layout.addLayout(orig_row)
+            
+            # VAT Exempt
+            vat_exempt = self.original_total / 1.12
+            vat_row = QHBoxLayout()
+            vat_label = QLabel("VAT Exempt:")
+            vat_label.setStyleSheet("color: #CCCCCC; font-size: 14px;")
+            vat_row.addWidget(vat_label)
+            vat_row.addStretch()
+            vat_value = QLabel(f"₱{vat_exempt:,.2f}")
+            vat_value.setStyleSheet("color: #FFFFFF; font-size: 14px;")
+            vat_row.addWidget(vat_value)
+            total_layout.addLayout(vat_row)
+            
+            # 20% Discount
+            disc_row = QHBoxLayout()
+            disc_label = QLabel("Less 20% Discount:")
+            disc_label.setStyleSheet("color: #FFB800; font-size: 14px;")
+            disc_row.addWidget(disc_label)
+            disc_row.addStretch()
+            disc_value = QLabel(f"-₱{self.discount_amount:,.2f}")
+            disc_value.setStyleSheet("color: #FFB800; font-size: 14px; font-weight: bold;")
+            disc_row.addWidget(disc_value)
+            total_layout.addLayout(disc_row)
+        else:
+            # Normal VAT breakdown
+            from services.settings_service import settings_service
+            tax_rate = settings_service.get('financial', 'tax_rate') or 12.0
+            vat_amount = self.total_amount - (self.total_amount / (1 + tax_rate / 100)) if tax_rate > 0 else 0
+            net_amount = self.total_amount - vat_amount
+            
+            net_row = QHBoxLayout()
+            net_label = QLabel("Net Amount:")
+            net_label.setStyleSheet("color: #CCCCCC; font-size: 16px;")
+            net_row.addWidget(net_label)
+            net_row.addStretch()
+            net_value = QLabel(f"₱{net_amount:,.2f}")
+            net_value.setStyleSheet("color: #FFFFFF; font-size: 16px; font-weight: bold;")
+            net_row.addWidget(net_value)
+            total_layout.addLayout(net_row)
+            
+            vat_row = QHBoxLayout()
+            vat_label = QLabel(f"VAT ({tax_rate:.0f}%):")
+            vat_label.setStyleSheet("color: #CCCCCC; font-size: 16px;")
+            vat_row.addWidget(vat_label)
+            vat_row.addStretch()
+            vat_value = QLabel(f"₱{vat_amount:,.2f}")
+            vat_value.setStyleSheet("color: #FFFFFF; font-size: 16px; font-weight: bold;")
+            vat_row.addWidget(vat_value)
+            total_layout.addLayout(vat_row)
+        
+        # Divider
+        div = QFrame()
+        div.setFrameShape(QFrame.Shape.HLine)
+        div.setStyleSheet("background-color: #2D3A5A; max-height: 1px;")
+        total_layout.addWidget(div)
+        
+        # Total
+        total_label = QLabel("AMOUNT TO PAY")
         total_label.setStyleSheet("color: #B0B0B0; font-size: 14px; font-weight: bold; letter-spacing: 1px;")
         total_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         total_layout.addWidget(total_label)
@@ -71,7 +171,7 @@ class PaymentDialog(QDialog):
                 background-color: #16213E;
                 color: #FFFFFF;
                 border: 2px solid #2D3A5A;
-                border-radius: 8px;
+                border-radius: 0px;
                 font-size: 32px;
                 padding: 5px 15px;
                 font-weight: bold;
@@ -121,7 +221,7 @@ class PaymentDialog(QDialog):
                     background-color: #2D3A5A;
                     color: white;
                     border: 1px solid #3D4A6A;
-                    border-radius: 8px;
+                    border-radius: 0px;
                     font-size: 16px;
                     font-weight: bold;
                 }
@@ -150,7 +250,7 @@ class PaymentDialog(QDialog):
             QFrame {
                 background-color: #16213E;
                 border: 2px solid #2D3A5A;
-                border-radius: 12px;
+                border-radius: 0px;
                 padding: 10px;
             }
         """)
@@ -180,7 +280,7 @@ class PaymentDialog(QDialog):
                 background-color: transparent;
                 border: 2px solid #CF6679;
                 color: #CF6679;
-                border-radius: 8px;
+                border-radius: 0px;
                 font-size: 16px;
                 font-weight: bold;
             }
@@ -202,7 +302,7 @@ class PaymentDialog(QDialog):
                 background-color: #03DAC6;
                 color: #000000;
                 border: none;
-                border-radius: 8px;
+                border-radius: 0px;
                 font-size: 20px;
                 font-weight: bold;
             }
@@ -237,7 +337,7 @@ class PaymentDialog(QDialog):
                             background-color: #03DAC6;
                             color: #000000;
                             border: none;
-                            border-radius: 8px;
+                            border-radius: 0px;
                             font-size: 20px;
                             font-weight: bold;
                         }
@@ -253,7 +353,7 @@ class PaymentDialog(QDialog):
                             background-color: #333333;
                             color: #555555;
                             border: none;
-                            border-radius: 8px;
+                            border-radius: 0px;
                             font-size: 20px;
                             font-weight: bold;
                         }
@@ -267,7 +367,7 @@ class PaymentDialog(QDialog):
                         background-color: #333333;
                         color: #555555;
                         border: none;
-                        border-radius: 8px;
+                        border-radius: 0px;
                         font-size: 20px;
                         font-weight: bold;
                     }
