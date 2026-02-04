@@ -38,7 +38,7 @@ QPushButton {
     background-color: #1E1E1E;
     color: #03DAC6;
     border: 1px solid #03DAC6;
-    border-radius: 6px;
+    border-radius: 0px;
     padding: 10px 20px;
     font-weight: 600;
     font-size: 14px;
@@ -113,7 +113,7 @@ QLineEdit, QSpinBox, QDoubleSpinBox, QDateEdit {
     background-color: #2C2C2C;
     color: #FFFFFF;
     border: 1px solid #333333;
-    border-radius: 4px;
+    border-radius: 0px;
     padding: 8px 12px;
     font-size: 14px;
     selection-background-color: #BB86FC;
@@ -188,7 +188,7 @@ QScrollBar:vertical {
 QScrollBar::handle:vertical {
     background: #424242;
     min-height: 20px;
-    border-radius: 5px;
+    border-radius: 0px;
 }
 
 QScrollBar::handle:vertical:hover {
@@ -205,19 +205,19 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 QFrame#cardFrame {
     background-color: #1E1E1E;
     border: 1px solid #333333;
-    border-radius: 8px;
+    border-radius: 0px;
 }
 
 /* Highlighted sections (Total amount, etc) */
 QFrame#highlightFrame {
     background-color: #252525;
     border: 1px solid #333333;
-    border-radius: 8px;
+    border-radius: 0px;
 }
 
 QGroupBox {
     border: 1px solid #333333;
-    border-radius: 6px;
+    border-radius: 0px;
     margin-top: 20px;
     font-weight: bold;
     color: #B3B3B3;
@@ -264,15 +264,14 @@ QLabel#totalLabel {
 QTabWidget::pane {
     border: 1px solid #333333;
     background: #1E1E1E;
-    border-radius: 0 0 4px 4px;
+    border-radius: 0px;
 }
 
 QTabBar::tab {
     background: #121212;
     color: #999999;
     padding: 10px 20px;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
+    border-radius: 0px;
     margin-right: 2px;
 }
 
@@ -326,7 +325,7 @@ QCalendarWidget QToolButton {
     color: #E0E0E0;
     background-color: transparent;
     border: none;
-    border-radius: 4px;
+    border-radius: 0px;
     margin: 3px;
     padding: 6px;
     font-weight: 600;
@@ -351,7 +350,7 @@ QCalendarWidget QToolButton::menu-indicator {
 QCalendarWidget QSpinBox {
     background-color: #2C2C2C;
     border: 1px solid #333333;
-    border-radius: 4px;
+    border-radius: 0px;
     color: #FFFFFF;
     selection-background-color: #03DAC6;
     selection-color: #000000;
@@ -371,13 +370,13 @@ QCalendarWidget QSpinBox::up-button, QCalendarWidget QSpinBox::down-button {
 
 QCalendarWidget QSpinBox::up-button {
     subcontrol-position: top right;
-    border-top-right-radius: 4px;
+    border-top-right-radius: 0px;
     margin-bottom: 1px; /* Separation */
 }
 
 QCalendarWidget QSpinBox::down-button {
     subcontrol-position: bottom right;
-    border-bottom-right-radius: 4px;
+    border-bottom-right-radius: 0px;
     margin-top: 1px;
 }
 

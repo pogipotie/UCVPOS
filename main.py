@@ -8,13 +8,15 @@ import os
 # Add the project directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from PyQt6.QtWidgets import QApplication, QSplashScreen, QMessageBox
+from PyQt6.QtWidgets import QApplication, QSplashScreen, QMessageBox, QDialog
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QPixmap
 
 from config import APP_NAME, APP_VERSION, BACKUP_DIR
 from database.schema import initialize_database
 from ui.main_window import MainWindow
+from ui.login_dialog import LoginDialog
+from services.auth_service import auth_service
 
 
 def create_splash() -> QSplashScreen:
@@ -119,22 +121,50 @@ def main():
         # Initialize database schema
         initialize_database()
         
-        # Create main window
-        splash.showMessage(
-            "Loading interface...", 
-            Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter,
-            Qt.GlobalColor.white
-        )
-        app.processEvents()
+        # Ensure at least one admin exists
+        splash.showMessage("Checking security...", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter, Qt.GlobalColor.white)
+        auth_service.ensure_default_admin()
         
-        window = MainWindow()
+        # Close initial splash
+        splash.close()
         
-        # Close splash and show main window
-        splash.finish(window)
-        window.show()
-        
-        # Run the application
-        sys.exit(app.exec())
+        # Application Loop
+        while True:
+            # Show Login Dialog
+            login = LoginDialog()
+            if login.exec() == QDialog.DialogCode.Accepted:
+                # Re-show splash screen while loading main window
+                splash.show()
+                splash.showMessage(
+                    "Loading interface...", 
+                    Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter, 
+                    Qt.GlobalColor.white
+                )
+                app.processEvents()
+    
+                # Create main window only after successful login
+                window = MainWindow()
+                
+                # Close splash and show main window
+                splash.finish(window)
+                window.show()
+                
+                # Run the application event loop
+                app.exec() # Blocks until window closes
+                
+                # Check for Logout vs Quit
+                if not auth_service.get_current_user():
+                    # User logged out explicitly (auth_service.logout() was called)
+                    # Loop continues -> Show LoginDialog again
+                    continue
+                else:
+                    # Window closed normally (Quit)
+                    break
+            else:
+                # Login cancelled
+                break
+                
+        sys.exit(0)
         
     except Exception as e:
         splash.close()

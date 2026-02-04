@@ -18,6 +18,7 @@ from ui.payment_dialog import PaymentDialog
 from services.sales_service import sales_service
 from services.compliance_service import compliance_service
 from services.inventory_service import inventory_service
+from services.auth_service import auth_service
 
 
 class CashierScreen(QWidget):
@@ -85,7 +86,7 @@ class CashierScreen(QWidget):
             QFrame {
                 background-color: #1E1E1E;
                 border: 1px solid #333333;
-                border-radius: 8px;
+                border-radius: 0px;
             }
         """)
         scan_layout = QHBoxLayout(scan_container)
@@ -167,7 +168,7 @@ class CashierScreen(QWidget):
             QFrame#highlightFrame {
                 background-color: #16213E;
                 border: 1px solid #2D3A5A;
-                border-radius: 12px;
+                border-radius: 0px;
             }
         """)
         deck_layout = QVBoxLayout(pay_deck)
@@ -204,7 +205,7 @@ class CashierScreen(QWidget):
             QPushButton#successButton {
                 font-size: 24px;
                 font-weight: bold;
-                border-radius: 8px;
+                border-radius: 0px;
             }
         """)
         self.checkout_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -245,7 +246,10 @@ class CashierScreen(QWidget):
             if reply != QMessageBox.StandardButton.Yes:
                 return
         
-        sales_service.start_new_sale()
+        user = auth_service.get_current_user()
+        cashier_name = user.username if user else None
+        
+        sales_service.start_new_sale(cashier_name)
         self.cart_table.clear_cart()
         if hasattr(self, 'display_total_label'):
             self.display_total_label.setText("₱0.00")
@@ -446,7 +450,7 @@ class CashierScreen(QWidget):
             background-color: {bg_color};
             color: {text_color};
             padding: 10px;
-            border-radius: 5px;
+            border-radius: 0px;
             font-weight: bold;
         """)
         self.status_label.setText(message)

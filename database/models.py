@@ -112,3 +112,20 @@ class VoidLog:
     voided_by: Optional[str] = None
     voided_at: Optional[datetime] = None
     original_total: float = 0.0
+
+
+@dataclass
+class User:
+    """User entity for authentication"""
+    id: Optional[int] = None
+    username: str = ""
+    password_hash: str = ""
+    role: str = "cashier"
+    full_name: Optional[str] = None
+    is_active: bool = True
+    created_at: Optional[datetime] = None
+    last_login: Optional[datetime] = None
+    
+    @property
+    def is_admin(self) -> bool:
+        return self.role == "admin"

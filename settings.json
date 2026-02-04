@@ -1,0 +1,16 @@
+{
+    "store_info": {
+        "name": "Double A Pharmacy",
+        "address": "Centro Santa Teresita Cagayan",
+        "phone": "0912-345-6789",
+        "header_text": "Thank you for your purchase!"
+    },
+    "financial": {
+        "tax_rate": 12.0,
+        "currency_symbol": "\u20b1"
+    },
+    "system": {
+        "backup_path": "C:\\Users\\RUTH\\OneDrive\\Pictures\\UCVPOS\\backups",
+        "printer_name": ""
+    }
+}

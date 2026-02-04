@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta
 
 from services.report_service import report_service
 from services.backup_service import backup_service
+from services.auth_service import auth_service
 from repositories.sales_repo import sales_repo
 from ui.components.custom_calendar import YearDropdownCalendarWidget
 
@@ -21,6 +22,7 @@ class ReportsScreen(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.cashier_filter = None
         self.setup_ui()
     
     def setup_ui(self):
@@ -38,34 +40,52 @@ class ReportsScreen(QWidget):
         layout.addLayout(header_layout)
         
         # Tab widget
-        tabs = QTabWidget()
-        tabs.setIconSize(QSize(24, 24))
+        self.tabs = QTabWidget()
+        self.tabs.setIconSize(QSize(24, 24))
         
         # Daily Sales Tab
         daily_tab = self._create_daily_tab()
-        tabs.addTab(daily_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView), "Daily Sales")
+        self.tabs.addTab(daily_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView), "Daily Sales")
         
         # Monthly Summary Tab
         monthly_tab = self._create_monthly_tab()
-        tabs.addTab(monthly_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogInfoView), "Monthly Summary")
+        self.tabs.addTab(monthly_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogInfoView), "Monthly Summary")
         
         # Transaction History Tab
         history_tab = self._create_history_tab()
-        tabs.addTab(history_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogListView), "Transaction History")
+        self.tabs.addTab(history_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogListView), "Transaction History")
         
         # Low Stock Tab
         stock_tab = self._create_stock_tab()
-        tabs.addTab(stock_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning), "Low Stock Alert")
+        self.tabs.addTab(stock_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning), "Low Stock Alert")
         
         # Expiry Tab
         expiry_tab = self._create_expiry_tab()
-        tabs.addTab(expiry_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical), "Expiry Report")
+        self.tabs.addTab(expiry_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical), "Expiry Report")
         
         # Data Management (Backup) Tab
         backup_tab = self._create_backup_tab()
-        tabs.addTab(backup_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon), "Data Management")
+        self.tabs.addTab(backup_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon), "Data Management")
         
-        layout.addWidget(tabs, 1)
+        layout.addWidget(self.tabs, 1)
+        
+        self.apply_permissions()
+
+    def apply_permissions(self):
+        """Apply role-based tab visibility and filtering"""
+        user = auth_service.get_current_user()
+        if user and user.role == 'cashier':
+            self.cashier_filter = user.username
+            
+            # Hide Monthly Summary (index 1)
+            self.tabs.setTabVisible(1, False)
+            
+            # Hide Data Management (index 5)
+            self.tabs.setTabVisible(5, False)
+        else:
+            self.cashier_filter = None
+            self.tabs.setTabVisible(1, True)
+            self.tabs.setTabVisible(5, True)
 
     def _create_backup_tab(self) -> QWidget:
         """Create data management tab"""
@@ -110,7 +130,7 @@ class ReportsScreen(QWidget):
             QFrame {
                 background-color: #1E1E1E;
                 border: 1px solid #333333;
-                border-radius: 8px;
+                border-radius: 0px;
                 border-left: 4px solid #03DAC6;
                 padding: 15px;
             }
@@ -176,6 +196,7 @@ class ReportsScreen(QWidget):
         self.daily_table.setHorizontalHeaderLabels(["ID", "Time", "Products", "Total", "Status", "Cashier"])
         self.daily_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.daily_table.setAlternatingRowColors(True)
+        self.daily_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         layout.addWidget(self.daily_table, 1)
         
         # Load today's report
@@ -228,6 +249,7 @@ class ReportsScreen(QWidget):
         self.monthly_table.setHorizontalHeaderLabels(["Date", "Transactions", "Sales", "Voided"])
         self.monthly_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.monthly_table.setAlternatingRowColors(True)
+        self.monthly_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         layout.addWidget(self.monthly_table, 1)
         
         return widget
@@ -274,6 +296,7 @@ class ReportsScreen(QWidget):
         ])
         self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.history_table.setAlternatingRowColors(True)
+        self.history_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         layout.addWidget(self.history_table, 1)
         
         return widget
@@ -306,6 +329,7 @@ class ReportsScreen(QWidget):
         ])
         self.stock_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.stock_table.setAlternatingRowColors(True)
+        self.stock_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         layout.addWidget(self.stock_table, 1)
         
         # Load data
@@ -337,6 +361,7 @@ class ReportsScreen(QWidget):
         self.expired_table.setColumnCount(4)
         self.expired_table.setHorizontalHeaderLabels(["Barcode", "Product", "Expiry Date", "Stock"])
         self.expired_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.expired_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         expired_layout.addWidget(self.expired_table)
         
         layout.addWidget(expired_group)
@@ -351,6 +376,7 @@ class ReportsScreen(QWidget):
             "Barcode", "Product", "Expiry Date", "Days Left", "Stock"
         ])
         self.expiring_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.expiring_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         expiring_layout.addWidget(self.expiring_table)
         
         layout.addWidget(expiring_group)
@@ -367,7 +393,7 @@ class ReportsScreen(QWidget):
         qdate = self.daily_date.date()
         report_date = date(qdate.year(), qdate.month(), qdate.day())
         
-        report = report_service.get_daily_report(report_date)
+        report = report_service.get_daily_report(report_date, self.cashier_filter)
         
         # Update summary
         summary = report['summary']
@@ -439,7 +465,7 @@ class ReportsScreen(QWidget):
         start_date = date(start_qdate.year(), start_qdate.month(), start_qdate.day())
         end_date = date(end_qdate.year(), end_qdate.month(), end_qdate.day())
         
-        sales = sales_repo.get_sales_by_date_range(start_date, end_date)
+        sales = sales_repo.get_sales_by_date_range(start_date, end_date, self.cashier_filter)
         
         self.history_table.setRowCount(len(sales))
         
@@ -499,7 +525,7 @@ class ReportsScreen(QWidget):
         qdate = self.daily_date.date()
         report_date = date(qdate.year(), qdate.month(), qdate.day())
         
-        filepath = report_service.export_sales_to_csv(report_date, report_date)
+        filepath = report_service.export_sales_to_csv(report_date, report_date, self.cashier_filter)
         QMessageBox.information(self, "Export Complete", f"Report saved to:\n{filepath}")
     
     def export_history_excel(self):
@@ -510,7 +536,7 @@ class ReportsScreen(QWidget):
         start_date = date(start_qdate.year(), start_qdate.month(), start_qdate.day())
         end_date = date(end_qdate.year(), end_qdate.month(), end_qdate.day())
         
-        filepath = report_service.export_sales_to_csv(start_date, end_date)
+        filepath = report_service.export_sales_to_csv(start_date, end_date, self.cashier_filter)
         QMessageBox.information(self, "Export Complete", f"Report saved to:\n{filepath}")
     
     def export_low_stock(self):

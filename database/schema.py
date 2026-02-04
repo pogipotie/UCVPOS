@@ -77,6 +77,18 @@ CREATE TABLE IF NOT EXISTS void_logs (
     original_total REAL NOT NULL,
     FOREIGN KEY (sale_id) REFERENCES sales(id)
 );
+
+-- Users table for authentication
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'cashier',
+    full_name TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP
+);
 """
 
 INDEX_SQL = """

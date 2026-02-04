@@ -12,7 +12,13 @@ from ui.styles import MAIN_STYLESHEET
 from ui.cashier_screen import CashierScreen
 from ui.inventory_screen import InventoryScreen
 from ui.reports_screen import ReportsScreen
+from ui.user_management_screen import UserManagementScreen
+from ui.admin_dashboard import AdminDashboard
+from ui.settings_screen import SettingsScreen
+from ui.components.logout_dialog import LogoutDialog
+from services.auth_service import auth_service
 from config import APP_NAME, APP_VERSION
+from PyQt6.QtWidgets import QMessageBox
 
 
 class MainWindow(QMainWindow):
@@ -21,6 +27,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setup_ui()
+        self.apply_permissions()
         self.apply_styles()
     
     def setup_ui(self):
@@ -43,13 +50,20 @@ class MainWindow(QMainWindow):
         self.content_stack = QStackedWidget()
         
         # Add screens
+        self.admin_dashboard = AdminDashboard()
         self.cashier_screen = CashierScreen()
         self.inventory_screen = InventoryScreen()
         self.reports_screen = ReportsScreen()
+        self.user_management_screen = UserManagementScreen()
+        self.settings_screen = SettingsScreen()
         
-        self.content_stack.addWidget(self.cashier_screen)
-        self.content_stack.addWidget(self.inventory_screen)
-        self.content_stack.addWidget(self.reports_screen)
+        # Stack Order
+        self.content_stack.addWidget(self.admin_dashboard)      # Index 0
+        self.content_stack.addWidget(self.cashier_screen)       # Index 1
+        self.content_stack.addWidget(self.inventory_screen)     # Index 2
+        self.content_stack.addWidget(self.reports_screen)       # Index 3
+        self.content_stack.addWidget(self.user_management_screen) # Index 4
+        self.content_stack.addWidget(self.settings_screen)       # Index 5
         
         main_layout.addWidget(self.content_stack, 1)
         
@@ -120,22 +134,54 @@ class MainWindow(QMainWindow):
         # Navigation buttons
         self.nav_buttons = []
         
-        # POS button
-        pos_btn = self._create_nav_button("POINT OF SALE", 0, "assets/POS.png")
-        pos_btn.setChecked(True)
+        # Dashboard (Index 0)
+        dash_btn = self._create_nav_button("DASHBOARD", 0, "assets/dashboard.png")
+        layout.addWidget(dash_btn)
+        
+        # POS button (Index 1)
+        pos_btn = self._create_nav_button("POINT OF SALE", 1, "assets/POS.png")
         layout.addWidget(pos_btn)
         
-        # Inventory button
-        inv_btn = self._create_nav_button("INVENTORY", 1, "assets/inventory.png")
+        # Inventory button (Index 2)
+        inv_btn = self._create_nav_button("INVENTORY", 2, "assets/inventory.png")
         layout.addWidget(inv_btn)
         
-        # Reports button
-        reports_btn = self._create_nav_button("REPORTS", 2, "assets/Reports.png")
+        # Reports button (Index 3)
+        reports_btn = self._create_nav_button("REPORTS", 3, "assets/Reports.png")
         layout.addWidget(reports_btn)
+        
+        # User Management button (Index 4)
+        users_btn = self._create_nav_button("USERS", 4, "assets/user.png")
+        layout.addWidget(users_btn)
+        
+        # Settings button (Index 5)
+        settings_btn = self._create_nav_button("SETTINGS", 5, "assets/settings.png")
+        layout.addWidget(settings_btn)
         
         layout.addStretch()
         
-        # Footer removed as per request
+        # Logout button
+        logout_btn = QPushButton("LOGOUT")
+        logout_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        logout_btn.clicked.connect(self.logout)
+        logout_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #E94560;
+                text-align: center;
+                padding: 10px 15px;
+                border: 1px solid #E94560;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: bold;
+                margin: 10px;
+            }
+            QPushButton:hover {
+                background-color: #E94560;
+                color: white;
+            }
+        """)
+        layout.addWidget(logout_btn)
         
         return sidebar
     
@@ -180,7 +226,7 @@ class MainWindow(QMainWindow):
                 # Fallback style if icon missing
                 pass
         
-        if not icon_path:
+        if not icon_path or not os.path.exists(os.path.join(os.path.dirname(os.path.dirname(__file__)), icon_path)):
              btn.setStyleSheet("""
                 QPushButton {
                     background-color: transparent;
@@ -216,14 +262,66 @@ class MainWindow(QMainWindow):
         self.content_stack.setCurrentIndex(index)
         
         # Refresh data if needed
-        if index == 1:  # Inventory
+        if index == 0: # Dashboard
+            if hasattr(self, 'admin_dashboard'):
+                self.admin_dashboard.refresh_data()
+        elif index == 2:  # Inventory
             self.inventory_screen.refresh()
+        elif index == 4: # Users
+             self.user_management_screen.refresh_data()
+        elif index == 5: # Settings
+             if hasattr(self, 'settings_screen'):
+                 self.settings_screen.load_data()
     
+    def apply_permissions(self):
+        """Enable/Disable features based on role"""
+        user = auth_service.get_current_user()
+        if not user:
+            return
+            
+        # Admin gets everything (default)
+        if user.role == 'admin':
+            # Default to Dashboard
+            self._navigate_to(0)
+            return
+            
+        # Cashier restrictions
+        if user.role == 'cashier':
+            # Dashboard (index 0) - Hide
+            if len(self.nav_buttons) > 0:
+                self.nav_buttons[0].hide()
+            
+            # Users Tab (index 4) - Hide
+            if len(self.nav_buttons) > 4:
+                self.nav_buttons[4].hide()
+            
+            # Settings Tab (index 5) - Hide
+            if len(self.nav_buttons) > 5:
+                self.nav_buttons[5].hide()
+            
+            # Default to POS (Index 1)
+            self._navigate_to(1)
+             
+            # Inventory (index 2) & Reports (index 3) are visible but restricted internally
+
+    
+    def logout(self):
+        """Handle logout"""
+        dialog = LogoutDialog(self)
+        if dialog.exec():
+            # User confirmed logout
+            auth_service.logout()
+            self.close()
+            
     def _update_status_bar(self):
         """Update status bar with current info"""
         from datetime import datetime
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
-        self.status_bar.showMessage(f"Ready | {now} | Database: pos.db")
+        
+        user = auth_service.get_current_user()
+        user_str = f"{user.username} ({user.role})" if user else "Not Logged In"
+        
+        self.status_bar.showMessage(f"Ready | {now} | User: {user_str} | Database: pos.db")
     
     def apply_styles(self):
         """Apply the main stylesheet"""

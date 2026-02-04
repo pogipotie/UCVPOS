@@ -54,14 +54,12 @@ class YearDropdownCalendarWidget(QCalendarWidget):
             # Hide SpinBoxes (Year editor)
             if isinstance(child, QSpinBox):
                 child.hide()
-                child.setFixedSize(0,0) # Crush it
             
             # Hide Year ToolButton (if in that mode)
             if isinstance(child, QToolButton):
                 # Standard year button usually is 'qt_calendar_yearbutton' or has year text
                 if child.objectName() == "qt_calendar_yearbutton" or child.text().isdigit():
                      child.hide()
-                     child.setFixedSize(0,0)
 
     def _setup_combo_style(self):
         self.year_combo.setStyleSheet("""

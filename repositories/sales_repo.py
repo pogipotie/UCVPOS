@@ -70,28 +70,38 @@ class SalesRepository:
         )
         return [self._row_to_sale_item(row) for row in cursor.fetchall()]
     
-    def get_sales_by_date(self, date: date) -> List[Sale]:
-        """Get all sales for a specific date"""
+    def get_sales_by_date(self, date: date, cashier_name: str = None) -> List[Sale]:
+        """Get all sales for a specific date, optionally filtered by cashier"""
         start = f"{date.isoformat()} 00:00:00"
         end = f"{date.isoformat()} 23:59:59"
-        cursor = db.execute(
-            """SELECT * FROM sales 
-               WHERE sale_date BETWEEN ? AND ?
-               ORDER BY sale_date DESC""",
-            (start, end)
-        )
+        
+        query = "SELECT * FROM sales WHERE sale_date BETWEEN ? AND ?"
+        params = [start, end]
+        
+        if cashier_name:
+            query += " AND cashier_name = ?"
+            params.append(cashier_name)
+            
+        query += " ORDER BY sale_date DESC"
+        
+        cursor = db.execute(query, tuple(params))
         return [self._row_to_sale(row) for row in cursor.fetchall()]
     
-    def get_sales_by_date_range(self, start_date: date, end_date: date) -> List[Sale]:
-        """Get sales within a date range"""
+    def get_sales_by_date_range(self, start_date: date, end_date: date, cashier_name: str = None) -> List[Sale]:
+        """Get sales within a date range, optionally filtered by cashier"""
         start = f"{start_date.isoformat()} 00:00:00"
         end = f"{end_date.isoformat()} 23:59:59"
-        cursor = db.execute(
-            """SELECT * FROM sales 
-               WHERE sale_date BETWEEN ? AND ?
-               ORDER BY sale_date DESC""",
-            (start, end)
-        )
+        
+        query = "SELECT * FROM sales WHERE sale_date BETWEEN ? AND ?"
+        params = [start, end]
+        
+        if cashier_name:
+            query += " AND cashier_name = ?"
+            params.append(cashier_name)
+            
+        query += " ORDER BY sale_date DESC"
+        
+        cursor = db.execute(query, tuple(params))
         return [self._row_to_sale(row) for row in cursor.fetchall()]
     
     def get_recent_sales(self, limit: int = 50) -> List[Sale]:
@@ -102,20 +112,26 @@ class SalesRepository:
         )
         return [self._row_to_sale(row) for row in cursor.fetchall()]
     
-    def get_daily_summary(self, date: date) -> dict:
-        """Get daily sales summary"""
+    def get_daily_summary(self, date: date, cashier_name: str = None) -> dict:
+        """Get daily sales summary, optionally filtered by cashier"""
         start = f"{date.isoformat()} 00:00:00"
         end = f"{date.isoformat()} 23:59:59"
-        cursor = db.execute(
-            """SELECT 
+        
+        query = """SELECT 
                COUNT(*) as total_transactions,
                SUM(CASE WHEN status = 'completed' THEN total_amount ELSE 0 END) as total_sales,
                SUM(CASE WHEN status = 'voided' THEN 1 ELSE 0 END) as voided_count
                FROM sales 
-               WHERE sale_date BETWEEN ? AND ?""",
-            (start, end)
-        )
+               WHERE sale_date BETWEEN ? AND ?"""
+        params = [start, end]
+        
+        if cashier_name:
+            query += " AND cashier_name = ?"
+            params.append(cashier_name)
+            
+        cursor = db.execute(query, tuple(params))
         row = cursor.fetchone()
+        
         return {
             'date': date,
             'total_transactions': row['total_transactions'] or 0,
@@ -148,6 +164,35 @@ class SalesRepository:
             'total_sales': row['total_sales'] or 0.0,
             'voided_count': row['voided_count'] or 0
         }
+
+    def get_sales_trend(self, days: int = 7) -> List[dict]:
+        """Get sales total for the last n days"""
+        # SQLite usage: date('now', '-7 days')
+        cursor = db.execute(
+            """SELECT DATE(sale_date) as day, 
+               SUM(total_amount) as total 
+               FROM sales 
+               WHERE status = 'completed' 
+               AND sale_date >= date('now', ?) 
+               GROUP BY day 
+               ORDER BY day ASC""",
+            (f'-{days} days',)
+        )
+        return [{'date': row['day'], 'total': row['total']} for row in cursor.fetchall()]
+
+    def get_top_products(self, limit: int = 5) -> List[dict]:
+        """Get best selling products"""
+        cursor = db.execute(
+            """SELECT product_name, SUM(quantity) as qty
+               FROM sale_items
+               JOIN sales ON sale_items.sale_id = sales.id
+               WHERE sales.status = 'completed'
+               GROUP BY product_name
+               ORDER BY qty DESC
+               LIMIT ?""",
+            (limit,)
+        )
+        return [{'name': row['product_name'], 'quantity': row['qty']} for row in cursor.fetchall()]
     
     def void_sale(self, sale_id: int, reason: str, voided_by: str = None) -> bool:
         """

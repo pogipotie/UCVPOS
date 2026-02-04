@@ -13,13 +13,13 @@ from config import BASE_DIR
 class ReportService:
     """Business logic for generating reports and exports"""
     
-    def get_daily_report(self, report_date: date = None) -> Dict[str, Any]:
+    def get_daily_report(self, report_date: date = None, cashier_username: str = None) -> Dict[str, Any]:
         """Generate daily sales report"""
         if report_date is None:
             report_date = date.today()
         
-        summary = sales_repo.get_daily_summary(report_date)
-        sales = sales_repo.get_sales_by_date(report_date)
+        summary = sales_repo.get_daily_summary(report_date, cashier_username)
+        sales = sales_repo.get_sales_by_date(report_date, cashier_username)
         
         # Populate items for detailed reporting
         for sale in sales:
@@ -122,9 +122,9 @@ class ReportService:
         
         return filepath
     
-    def export_sales_to_csv(self, start_date: date, end_date: date) -> str:
+    def export_sales_to_csv(self, start_date: date, end_date: date, cashier_username: str = None) -> str:
         """Export sales data to CSV"""
-        sales = sales_repo.get_sales_by_date_range(start_date, end_date)
+        sales = sales_repo.get_sales_by_date_range(start_date, end_date, cashier_username)
         
         data = []
         for sale in sales:

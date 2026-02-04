@@ -12,6 +12,7 @@ from PyQt6.QtGui import QColor
 from ui.components.barcode_input import BarcodeInput
 from ui.components.product_form import ProductFormDialog
 from services.inventory_service import inventory_service
+from services.auth_service import auth_service
 from database.models import Product
 from ui.styles import LOW_STOCK_STYLE, EXPIRED_STYLE, OUT_OF_STOCK_STYLE
 
@@ -187,6 +188,7 @@ class InventoryScreen(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         
         # Column sizing
         header = self.table.horizontalHeader()
@@ -202,6 +204,18 @@ class InventoryScreen(QWidget):
         self.table.verticalHeader().setDefaultSectionSize(50)
         
         layout.addWidget(self.table, 1)
+        
+        self.apply_permissions()
+        
+    def apply_permissions(self):
+        """Apply role-based restrictions"""
+        user = auth_service.get_current_user()
+        if user and user.role == "cashier":
+            # Hide Add Button
+            self.add_btn.hide()
+            
+            # Hide Actions Column (Last column = 8)
+            self.table.setColumnHidden(8, True)
     
     def load_products(self, filter_type: str = "all"):
         """Load products into the table"""

@@ -122,6 +122,12 @@ class SaleSuccessDialog(QDialog):
         from datetime import datetime
         import os
         
+        from services.settings_service import settings_service
+        settings = settings_service.get_all()
+        store = settings.get('store_info', {})
+        financial = settings.get('financial', {})
+        currency = financial.get('currency_symbol', '₱')
+        
         # Ensure directory exists
         receipt_dir = "receipts"
         if not os.path.exists(receipt_dir):
@@ -156,9 +162,9 @@ class SaleSuccessDialog(QDialog):
             return y_pos - 4 * mm
             
         # Header
-        y = draw_centered("Double A Drug Store", y, size=12)
-        y = draw_centered("Centro Santa Teresita Cagayan", y, "Helvetica", 8)
-        y = draw_centered("Tel: 09950655878", y, "Helvetica", 8)
+        y = draw_centered(store.get('name', 'Pharmacy POS'), y, size=12)
+        y = draw_centered(store.get('address', ''), y, "Helvetica", 8)
+        y = draw_centered(f"Tel: {store.get('phone', '')}", y, "Helvetica", 8)
         y -= 2 * mm
         y = draw_line(y)
         
@@ -199,22 +205,22 @@ class SaleSuccessDialog(QDialog):
         # Totals
         c.setFont("Helvetica-Bold", 10)
         c.drawString(left_margin + 20*mm, y, "TOTAL:")
-        c.drawRightString(page_width - right_margin, y, f"P{self.total:,.2f}")
+        c.drawRightString(page_width - right_margin, y, f"{currency}{self.total:,.2f}")
         y -= 5 * mm
         
         c.setFont("Helvetica", 9)
         c.drawString(left_margin + 20*mm, y, "CASH:")
-        c.drawRightString(page_width - right_margin, y, f"P{self.paid:,.2f}")
+        c.drawRightString(page_width - right_margin, y, f"{currency}{self.paid:,.2f}")
         y -= 5 * mm
         
         c.setFont("Helvetica-Bold", 11)
         c.drawString(left_margin + 20*mm, y, "CHANGE:")
-        c.drawRightString(page_width - right_margin, y, f"P{self.change:,.2f}")
+        c.drawRightString(page_width - right_margin, y, f"{currency}{self.change:,.2f}")
         y -= 8 * mm
         
         # Footer
         y = draw_line(y)
-        draw_centered("THANK YOU FOR YOUR PURCHASE!", y, "Helvetica", 8)
+        draw_centered(store.get('header_text', 'THANK YOU FOR YOUR PURCHASE!'), y, "Helvetica", 8)
         draw_centered("Please come again.", y - 4*mm, "Helvetica", 8)
         
         c.save()
