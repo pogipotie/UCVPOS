@@ -1,4 +1,4 @@
-# UCVPOS - Modern Pharmacy Point of Sale System
+# Double A Drugstore POS - Modern Pharmacy Point of Sale System
 
 A robust, offline-first Point of Sale (POS) system designed for pharmacies, built with Python (PyQt6) and powered by MySQL.
 
