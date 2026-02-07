@@ -174,9 +174,9 @@ class InventoryScreen(QWidget):
         
         # Product Table
         self.table = QTableWidget()
-        self.table.setColumnCount(9)
+        self.table.setColumnCount(10)
         self.table.setHorizontalHeaderLabels([
-            "Barcode", "Name", "Price", "Stock", "Min", 
+            "Barcode", "Name", "Price", "Cost", "Stock", "Min", 
             "Batch", "Expiry", "Rx", "Actions"
         ])
         
@@ -190,15 +190,9 @@ class InventoryScreen(QWidget):
         self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         
-        # Column sizing
+        # Column sizing - all columns stretch equally
         header = self.table.horizontalHeader()
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch) # Name
-        self.table.setColumnWidth(0, 140)
-        self.table.setColumnWidth(2, 90)
-        self.table.setColumnWidth(3, 70)
-        self.table.setColumnWidth(4, 70)
-        self.table.setColumnWidth(7, 50) # Rx
-        self.table.setColumnWidth(8, 160) # Actions
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         
         # Row height
         self.table.verticalHeader().setDefaultSectionSize(50)
@@ -214,8 +208,8 @@ class InventoryScreen(QWidget):
             # Hide Add Button
             self.add_btn.hide()
             
-            # Hide Actions Column (Last column = 8)
-            self.table.setColumnHidden(8, True)
+            # Hide Actions Column (Last column = 9)
+            self.table.setColumnHidden(9, True)
     
     def load_products(self, filter_type: str = "all"):
         """Load products into the table"""
@@ -248,46 +242,54 @@ class InventoryScreen(QWidget):
         # Barcode
         barcode_item = QTableWidgetItem(product.barcode)
         barcode_item.setData(Qt.ItemDataRole.UserRole, product.id)
-        barcode_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        barcode_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         self.table.setItem(row, 0, barcode_item)
         
         # Name
         name_item = QTableWidgetItem(product.name)
-        name_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        name_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         self.table.setItem(row, 1, name_item)
         
         # Price
         price_item = QTableWidgetItem(f"₱{product.price:.2f}")
-        price_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        price_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         self.table.setItem(row, 2, price_item)
+        
+        # Cost Price
+        cost_item = QTableWidgetItem(f"₱{product.cost_price:.2f}")
+        cost_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        cost_item.setForeground(QColor("#888888"))  # Subtle gray
+        self.table.setItem(row, 3, cost_item)
         
         # Stock
         stock_item = QTableWidgetItem(str(product.stock_quantity))
         stock_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.table.setItem(row, 3, stock_item)
+        self.table.setItem(row, 4, stock_item)
         
         # Min Stock
         min_stock_item = QTableWidgetItem(str(product.min_stock_level))
         min_stock_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.table.setItem(row, 4, min_stock_item)
+        self.table.setItem(row, 5, min_stock_item)
         
         # Batch
         batch_item = QTableWidgetItem(product.batch_number or "-")
-        self.table.setItem(row, 5, batch_item)
+        batch_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.table.setItem(row, 6, batch_item)
         
         # Expiry
         if product.expiry_date:
             expiry_item = QTableWidgetItem(product.expiry_date.isoformat())
         else:
             expiry_item = QTableWidgetItem("-")
-        self.table.setItem(row, 6, expiry_item)
+        expiry_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.table.setItem(row, 7, expiry_item)
         
         # Prescription
         rx_item = QTableWidgetItem("Rx" if product.prescription_required else "")
         rx_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         if product.prescription_required:
             rx_item.setForeground(QColor("#FFB800"))
-        self.table.setItem(row, 7, rx_item)
+        self.table.setItem(row, 8, rx_item)
         
         # Actions
         actions_widget = QWidget()
@@ -333,23 +335,23 @@ class InventoryScreen(QWidget):
         delete_btn.clicked.connect(lambda checked, p=product: self.delete_product(p))
         actions_layout.addWidget(delete_btn)
         
-        self.table.setCellWidget(row, 8, actions_widget)
+        self.table.setCellWidget(row, 9, actions_widget)
         
         # Apply row styling based on status
         if product.is_expired:
-            for col in range(8):
+            for col in range(9):
                 item = self.table.item(row, col)
                 if item:
                     item.setBackground(QColor("#3D1A1A"))
                     item.setForeground(QColor("#FF4757"))
         elif product.is_out_of_stock:
-            for col in range(8):
+            for col in range(9):
                 item = self.table.item(row, col)
                 if item:
                     item.setBackground(QColor("#2D2D2D"))
                     item.setForeground(QColor("#888888"))
         elif product.is_low_stock:
-            for col in range(8):
+            for col in range(9):
                 item = self.table.item(row, col)
                 if item:
                     item.setBackground(QColor("#3D2E00"))
@@ -386,7 +388,10 @@ class InventoryScreen(QWidget):
             success, message, product_id = inventory_service.add_product(product)
             
             if success:
-                QMessageBox.information(self, "Success", message)
+                # Use custom success dialog
+                from ui.components.action_success_dialog import ActionSuccessDialog
+                success_dialog = ActionSuccessDialog("Success", message, self)
+                success_dialog.exec()
                 self.load_products()
             else:
                 QMessageBox.warning(self, "Error", message)
@@ -400,25 +405,39 @@ class InventoryScreen(QWidget):
             success, message = inventory_service.update_product(updated_product)
             
             if success:
-                QMessageBox.information(self, "Success", message)
+                # Use custom success dialog
+                from ui.components.action_success_dialog import ActionSuccessDialog
+                success_dialog = ActionSuccessDialog("Success", message, self)
+                success_dialog.exec()
                 self.load_products()
             else:
                 QMessageBox.warning(self, "Error", message)
     
     def delete_product(self, product: Product):
         """Delete a product"""
-        reply = QMessageBox.question(
-            self, "Confirm Delete",
-            f"Are you sure you want to delete '{product.name}'?\n"
-            f"This action cannot be undone.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        from ui.components.action_confirm_dialog import ActionConfirmDialog
+        import os
+        
+        # ui/inventory_screen.py -> ui -> UCVPOS (Root)
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "delete.png")
+        
+        dialog = ActionConfirmDialog(
+            "Confirm Delete",
+            f"Are you sure you want to delete '{product.name}'?\nThis action cannot be undone.",
+            self,
+            icon_path=icon_path,
+            is_danger=True,
+            confirm_text="Delete"
         )
         
-        if reply == QMessageBox.StandardButton.Yes:
+        if dialog.exec():
             success, message = inventory_service.delete_product(product.id)
             
             if success:
-                QMessageBox.information(self, "Success", message)
+                # Use custom success dialog
+                from ui.components.action_success_dialog import ActionSuccessDialog
+                success_dialog = ActionSuccessDialog("Deleted", message, self)
+                success_dialog.exec()
                 self.load_products()
             else:
                 QMessageBox.warning(self, "Error", message)

@@ -223,6 +223,7 @@ class SalesService:
                     product_name=cart_item.product.name,
                     quantity=cart_item.quantity,
                     unit_price=cart_item.product.price,
+                    original_cost=cart_item.product.cost_price,  # Capture cost at sale
                     subtotal=cart_item.subtotal,
                     batch_number=compliance_service.get_batch_for_sale(cart_item.product)
                 )

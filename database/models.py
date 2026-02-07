@@ -13,6 +13,7 @@ class Product:
     barcode: str = ""
     name: str = ""
     price: float = 0.0
+    cost_price: float = 0.0
     stock_quantity: int = 0
     min_stock_level: int = 10
     batch_number: Optional[str] = None
@@ -77,6 +78,7 @@ class SaleItem:
     product_name: str = ""
     quantity: int = 1
     unit_price: float = 0.0
+    original_cost: float = 0.0
     subtotal: float = 0.0
     batch_number: Optional[str] = None
 

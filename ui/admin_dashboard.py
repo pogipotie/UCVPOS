@@ -72,35 +72,40 @@ class SalesChart(FigureCanvas):
 
     def plot_sales(self):
         self.ax.clear()
+        self.ax.set_facecolor('#1E1E1E')
+        
+        # Style axes for dark theme (always, even with no data)
+        self.ax.tick_params(axis='x', colors='white')
+        self.ax.tick_params(axis='y', colors='white')
+        self.ax.spines['top'].set_visible(False)
+        self.ax.spines['right'].set_visible(False)
+        self.ax.spines['bottom'].set_color('white')
+        self.ax.spines['left'].set_color('white')
         
         # Data
         if not self.data:
-            self.ax.text(0.5, 0.5, 'No Data', color='#666666', ha='center', va='center')
+            self.ax.text(0.5, 0.5, 'No Data', color='#888888', ha='center', va='center', fontsize=14)
             self.draw()
             return
             
         dates = [d['date'][-5:] for d in self.data] # MM-DD
         values = [d['total'] for d in self.data]
         
-        # Horizontal Bar Chart
-        bars = self.ax.barh(dates, values, color='#03DAC6', height=0.6)
+        # Horizontal Bar Chart with thin bars
+        bar_height = 0.15  # Very thin bars
+        bars = self.ax.barh(dates, values, color='#03DAC6', height=bar_height)
         
-        # Styling Axis
+        # Title
         self.ax.set_title("Sales Trend (Last 7 Days)", color='white', fontsize=12, pad=20)
-        self.ax.tick_params(axis='x', colors='#B3B3B3')
-        self.ax.tick_params(axis='y', colors='#B3B3B3')
         
-        # Remove spines
-        self.ax.spines['top'].set_visible(False)
-        self.ax.spines['right'].set_visible(False)
-        self.ax.spines['bottom'].set_color('#333333')
-        self.ax.spines['left'].set_color('#333333')
+        # Set large margins so single bar doesn't fill entire chart
+        self.ax.margins(y=0.8)
         
         # Add value labels
         for bar in bars:
             width = bar.get_width()
             self.ax.text(width, bar.get_y() + bar.get_height()/2, 
-                         f'  P{width:,.0f}', 
+                         f'  ₱{width:,.0f}', 
                          ha='left', va='center', color='white', fontsize=9)
                          
         self.figure.tight_layout()
@@ -210,11 +215,13 @@ class AdminDashboard(QWidget):
         stats_layout.setSpacing(20)
         
         self.card_sales = StatCard("Sales Today", "₱0.00", "#03DAC6")
+        self.card_profit = StatCard("Profit Today", "₱0.00", "#4CAF50")  # Green for profit
         self.card_transactions = StatCard("Transactions", "0", "#BB86FC")
         self.card_low_stock = StatCard("Low Stock", "0", "#FFB800")
         self.card_expired = StatCard("Expired", "0", "#CF6679")
         
         stats_layout.addWidget(self.card_sales)
+        stats_layout.addWidget(self.card_profit)
         stats_layout.addWidget(self.card_transactions)
         stats_layout.addWidget(self.card_low_stock)
         stats_layout.addWidget(self.card_expired)
@@ -239,6 +246,10 @@ class AdminDashboard(QWidget):
         summary = sales_repo.get_daily_summary(today)
         self.card_sales.update_value(f"₱{summary['total_sales']:.2f}")
         self.card_transactions.update_value(summary['total_transactions'])
+        
+        # 2. Profit Today
+        profit_data = sales_repo.get_daily_profit(today)
+        self.card_profit.update_value(f"₱{profit_data['profit']:.2f}")
         
         # 2. Alerts
         low_stock_count = len(inventory_service.get_low_stock_products())

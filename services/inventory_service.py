@@ -79,7 +79,11 @@ class InventoryService:
             )
             return True, "Product deleted successfully"
         except Exception as e:
-            return False, f"Error deleting product: {str(e)}"
+            error_msg = str(e)
+            # Check for foreign key constraint (product has sales history)
+            if '1451' in error_msg or 'foreign key constraint' in error_msg.lower():
+                return False, f"Cannot delete '{product.name}' - it has sales history.\nProducts with transactions cannot be deleted to preserve records."
+            return False, f"Error deleting product: {error_msg}"
     
     def adjust_stock(self, product_id: int, new_quantity: int, 
                      reason: str = None) -> Tuple[bool, str]:

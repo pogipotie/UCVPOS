@@ -106,6 +106,13 @@ CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
 
 def initialize_database():
     """Create all tables and indexes if they don't exist"""
+    # Check for MySQL configuration
+    import config
+    if getattr(config, 'DB_TYPE', 'sqlite') == 'mysql':
+        from database.schema_mysql import initialize_mysql_database
+        initialize_mysql_database()
+        return
+
     # Create tables
     for statement in SCHEMA_SQL.split(';'):
         statement = statement.strip()

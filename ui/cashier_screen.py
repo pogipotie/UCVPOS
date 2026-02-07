@@ -10,6 +10,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QKeySequence, QShortcut
 
 from ui.components.barcode_input import BarcodeInputLarge
+from ui.components.action_confirm_dialog import ActionConfirmDialog
 from ui.components.cart_table import CartTable
 from ui.components.product_selection_dialog import ProductSelectionDialog
 from ui.components.sale_success_dialog import SaleSuccessDialog
@@ -154,6 +155,37 @@ class CashierScreen(QWidget):
         
         right_layout.addWidget(actions_group)
         
+        # 1.5 Navigation Shortcuts
+        nav_group = QGroupBox("Navigation Shortcuts")
+        nav_layout = QVBoxLayout(nav_group)
+        nav_layout.setSpacing(10)
+        
+        # Row 1 (F2 Inventory)
+        self.nav_inv_btn = QPushButton("Inventory (F2)")
+        self.nav_inv_btn.setMinimumHeight(45)
+        self.nav_inv_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.nav_inv_btn.clicked.connect(lambda: self._request_navigation(2))
+        nav_layout.addWidget(self.nav_inv_btn)
+        
+        # Row 2 (F3/F4 Reports)
+        row_nav = QHBoxLayout()
+        
+        self.nav_rep_btn = QPushButton("Reports (F3)")
+        self.nav_rep_btn.setMinimumHeight(45)
+        self.nav_rep_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.nav_rep_btn.clicked.connect(lambda: self._request_navigation(3))
+        row_nav.addWidget(self.nav_rep_btn)
+        
+        self.nav_hist_btn = QPushButton("History (F4)")
+        self.nav_hist_btn.setMinimumHeight(45)
+        self.nav_hist_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.nav_hist_btn.clicked.connect(lambda: self._request_navigation(3))
+        row_nav.addWidget(self.nav_hist_btn)
+        
+        nav_layout.addLayout(row_nav)
+        
+        right_layout.addWidget(nav_group)
+        
         # 2. SC/PWD Discount Section
         from PyQt6.QtWidgets import QRadioButton, QButtonGroup
         
@@ -172,6 +204,25 @@ class CashierScreen(QWidget):
                 left: 10px;
                 padding: 0 5px;
             }
+            QRadioButton {
+                font-size: 14px;
+                spacing: 8px;
+                color: #CCCCCC;
+            }
+            QRadioButton::indicator {
+                width: 16px;
+                height: 16px;
+                border-radius: 9px;
+                border: 2px solid #555;
+                background: transparent;
+            }
+            QRadioButton::indicator:checked {
+                background-color: #FFB800;
+                border: 2px solid #FFB800;
+            }
+            QRadioButton::indicator:unchecked:hover {
+                border: 2px solid #FFB800;
+            }
         """)
         discount_layout = QVBoxLayout(discount_group)
         discount_layout.setSpacing(8)
@@ -181,13 +232,14 @@ class CashierScreen(QWidget):
         
         self.no_discount_radio = QRadioButton("None")
         self.no_discount_radio.setChecked(True)
-        self.no_discount_radio.setStyleSheet("color: #CCCCCC; font-size: 14px;")
+        # self.no_discount_radio.setStyleSheet("color: #CCCCCC; font-size: 14px;") # Handled by group style
         
         self.sc_radio = QRadioButton("Senior Citizen (20% + VAT Exempt)")
-        self.sc_radio.setStyleSheet("color: #03DAC6; font-size: 14px;")
+        # Override text color for SC/PWD to highlight them
+        self.sc_radio.setStyleSheet("color: #03DAC6; font-weight: bold;")
         
         self.pwd_radio = QRadioButton("PWD (20% + VAT Exempt)")
-        self.pwd_radio.setStyleSheet("color: #03DAC6; font-size: 14px;")
+        self.pwd_radio.setStyleSheet("color: #03DAC6; font-weight: bold;")
         
         self.discount_button_group.addButton(self.no_discount_radio, 0)
         self.discount_button_group.addButton(self.sc_radio, 1)
@@ -281,12 +333,16 @@ class CashierScreen(QWidget):
     def start_new_sale(self):
         """Start a new sale session"""
         if sales_service.current_session and sales_service.current_session.cart:
-            reply = QMessageBox.question(
-                self, "Confirm",
-                "Current cart is not empty. Start new sale?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            # Styled Confirmation Dialog
+            dialog = ActionConfirmDialog(
+                "Start New Sale?", 
+                "Current cart is not empty. Proceeding will discard the current transaction.",
+                self,
+                confirm_text="Start New",
+                is_danger=False 
             )
-            if reply != QMessageBox.StandardButton.Yes:
+            
+            if not dialog.exec():
                 return
         
         user = auth_service.get_current_user()
@@ -418,13 +474,17 @@ class CashierScreen(QWidget):
             self.show_status("Cart is already empty", "info")
             return
         
-        reply = QMessageBox.question(
-            self, "Confirm",
-            "Clear all items from cart?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        
+        # Styled Confirmation Dialog
+        dialog = ActionConfirmDialog(
+            "Clear Cart?", 
+            "Are you sure you want to remove all items from the cart?",
+            self,
+            confirm_text="Clear All",
+            is_danger=True
         )
         
-        if reply == QMessageBox.StandardButton.Yes:
+        if dialog.exec():
             sales_service.clear_cart()
             self.cart_table.clear_cart()
             if hasattr(self, 'display_total_label'):
@@ -551,4 +611,12 @@ class CashierScreen(QWidget):
         """Focus barcode input when screen becomes visible"""
         super().showEvent(event)
         QTimer.singleShot(100, self.barcode_input.focus_input)
+
+    def _request_navigation(self, index):
+        """Request navigation on main window"""
+        # Try to find the main window
+        parent = self.window()
+        # duck typing: check if method exists
+        if hasattr(parent, '_navigate_to'):
+            parent._navigate_to(index)
 

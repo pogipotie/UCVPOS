@@ -29,14 +29,15 @@ class SalesRepository:
                 db.execute(
                     """INSERT INTO sale_items 
                        (sale_id, product_id, product_name, quantity, 
-                        unit_price, subtotal, batch_number)
-                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        unit_price, original_cost, subtotal, batch_number)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         sale_id,
                         item.product_id,
                         item.product_name,
                         item.quantity,
                         item.unit_price,
+                        item.original_cost,
                         item.subtotal,
                         item.batch_number
                     )
@@ -139,6 +140,36 @@ class SalesRepository:
             'voided_count': row['voided_count'] or 0
         }
     
+    def get_daily_profit(self, target_date: date) -> dict:
+        """Get daily profit (Revenue - Cost) from sale_items"""
+        start = f"{target_date.isoformat()} 00:00:00"
+        end = f"{target_date.isoformat()} 23:59:59"
+        
+        # Calculate revenue and cost from sale_items for completed sales
+        query = """
+            SELECT 
+                COALESCE(SUM(si.quantity * si.unit_price), 0) as revenue,
+                COALESCE(SUM(si.quantity * COALESCE(si.original_cost, 0)), 0) as cost
+            FROM sale_items si
+            INNER JOIN sales s ON si.sale_id = s.id
+            WHERE s.sale_date BETWEEN ? AND ?
+            AND s.status = 'completed'
+        """
+        
+        cursor = db.execute(query, (start, end))
+        row = cursor.fetchone()
+        
+        revenue = float(row['revenue'] or 0)
+        cost = float(row['cost'] or 0)
+        profit = revenue - cost
+        
+        return {
+            'date': target_date,
+            'revenue': revenue,
+            'cost': cost,
+            'profit': profit
+        }
+    
     def get_monthly_summary(self, year: int, month: int) -> dict:
         """Get monthly sales summary"""
         # Get first and last day of month
@@ -167,18 +198,34 @@ class SalesRepository:
 
     def get_sales_trend(self, days: int = 7) -> List[dict]:
         """Get sales total for the last n days"""
-        # SQLite usage: date('now', '-7 days')
+        from datetime import timedelta
+        
+        # Calculate start date in Python for DB compatibility
+        start_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+        
         cursor = db.execute(
             """SELECT DATE(sale_date) as day, 
                SUM(total_amount) as total 
                FROM sales 
                WHERE status = 'completed' 
-               AND sale_date >= date('now', ?) 
+               AND sale_date >= ? 
                GROUP BY day 
                ORDER BY day ASC""",
-            (f'-{days} days',)
+            (start_date,)
         )
-        return [{'date': row['day'], 'total': row['total']} for row in cursor.fetchall()]
+        results = []
+        for row in cursor.fetchall():
+            day_val = row['day']
+            # Ensure it's a string for UI consistency
+            if hasattr(day_val, 'strftime'):
+                day_val = day_val.strftime('%Y-%m-%d')
+            
+            # MySQL returns Decimal for SUM, convert to float for plotting
+            total_val = float(row['total']) if row['total'] is not None else 0.0
+            
+            results.append({'date': str(day_val), 'total': total_val})
+            
+        return results
 
     def get_top_products(self, limit: int = 5) -> List[dict]:
         """Get best selling products"""
@@ -192,7 +239,9 @@ class SalesRepository:
                LIMIT ?""",
             (limit,)
         )
-        return [{'name': row['product_name'], 'quantity': row['qty']} for row in cursor.fetchall()]
+        # MySQL returns Decimal for SUM(int), convert to int for QProgressBar
+        return [{'name': row['product_name'], 'quantity': int(row['qty']) if row['qty'] is not None else 0} 
+                for row in cursor.fetchall()]
     
     def void_sale(self, sale_id: int, reason: str, voided_by: str = None) -> bool:
         """
@@ -234,6 +283,7 @@ class SalesRepository:
             product_name=row['product_name'],
             quantity=row['quantity'],
             unit_price=row['unit_price'],
+            original_cost=float(row.get('original_cost', 0.0) or 0.0),
             subtotal=row['subtotal'],
             batch_number=row['batch_number']
         )

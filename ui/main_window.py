@@ -27,8 +27,30 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setup_ui()
+        self.setup_ui()
         self.apply_permissions()
         self.apply_styles()
+        self._setup_shortcuts()
+    
+    def _setup_shortcuts(self):
+        """Setup global keyboard shortcuts"""
+        from PyQt6.QtGui import QKeySequence, QShortcut
+        
+        # F1 -> POS (Index 1)
+        self.shortcut_f1 = QShortcut(QKeySequence("F1"), self)
+        self.shortcut_f1.activated.connect(lambda: self._navigate_to(1))
+        
+        # F2 -> Inventory (Index 2)
+        self.shortcut_f2 = QShortcut(QKeySequence("F2"), self)
+        self.shortcut_f2.activated.connect(lambda: self._navigate_to(2))
+        
+        # F3 -> Reports (Index 3) - User requested "Sales History"
+        self.shortcut_f3 = QShortcut(QKeySequence("F3"), self)
+        self.shortcut_f3.activated.connect(lambda: self._navigate_to(3))
+        
+        # F4 -> Reports (Index 3)
+        self.shortcut_f4 = QShortcut(QKeySequence("F4"), self)
+        self.shortcut_f4.activated.connect(lambda: self._navigate_to(3))
     
     def setup_ui(self):
         self.setWindowTitle(f"{APP_NAME} v{APP_VERSION}")
@@ -321,7 +343,7 @@ class MainWindow(QMainWindow):
         user = auth_service.get_current_user()
         user_str = f"{user.username} ({user.role})" if user else "Not Logged In"
         
-        self.status_bar.showMessage(f"Ready | {now} | User: {user_str} | Database: pos.db")
+        self.status_bar.showMessage(f"Ready | {now} | User: {user_str}")
     
     def apply_styles(self):
         """Apply the main stylesheet"""

@@ -89,13 +89,14 @@ class ProductRepository:
         """Create a new product, returns the new ID"""
         cursor = db.execute(
             """INSERT INTO products 
-               (barcode, name, price, stock_quantity, min_stock_level, 
+               (barcode, name, price, cost_price, stock_quantity, min_stock_level, 
                 batch_number, expiry_date, prescription_required)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 product.barcode,
                 product.name,
                 product.price,
+                product.cost_price,
                 product.stock_quantity,
                 product.min_stock_level,
                 product.batch_number,
@@ -112,7 +113,7 @@ class ProductRepository:
             return False
         db.execute(
             """UPDATE products SET
-               barcode = ?, name = ?, price = ?, stock_quantity = ?,
+               barcode = ?, name = ?, price = ?, cost_price = ?, stock_quantity = ?,
                min_stock_level = ?, batch_number = ?, expiry_date = ?,
                prescription_required = ?, updated_at = CURRENT_TIMESTAMP
                WHERE id = ?""",
@@ -120,6 +121,7 @@ class ProductRepository:
                 product.barcode,
                 product.name,
                 product.price,
+                product.cost_price,
                 product.stock_quantity,
                 product.min_stock_level,
                 product.batch_number,
@@ -151,15 +153,19 @@ class ProductRepository:
     
     def count(self) -> int:
         """Get total product count"""
-        cursor = db.execute("SELECT COUNT(*) FROM products")
-        return cursor.fetchone()[0]
+        cursor = db.execute("SELECT COUNT(*) as count FROM products")
+        return cursor.fetchone()['count']
     
     def _row_to_product(self, row) -> Product:
         """Convert database row to Product object"""
         expiry = None
         if row['expiry_date']:
             try:
-                expiry = date.fromisoformat(row['expiry_date'])
+                # MySQL returns date/datetime objects directly, SQLite returns strings
+                if isinstance(row['expiry_date'], date):
+                    expiry = row['expiry_date']
+                else:
+                    expiry = date.fromisoformat(str(row['expiry_date']))
             except (ValueError, TypeError):
                 pass
         
@@ -167,7 +173,8 @@ class ProductRepository:
             id=row['id'],
             barcode=row['barcode'],
             name=row['name'],
-            price=row['price'],
+            price=float(row['price']),  # Ensure float for MySQL Decimal
+            cost_price=float(row.get('cost_price', 0.0) or 0.0), # Safer fetch
             stock_quantity=row['stock_quantity'],
             min_stock_level=row['min_stock_level'],
             batch_number=row['batch_number'],

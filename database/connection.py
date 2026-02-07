@@ -4,6 +4,7 @@ Singleton pattern for SQLite connection with WAL mode for performance
 """
 import sqlite3
 import threading
+import config
 from config import DATABASE_PATH, DB_BUSY_TIMEOUT_MS
 
 
@@ -27,27 +28,48 @@ class DatabaseConnection:
             return
         self._initialized = True
         self._db_path = DATABASE_PATH
+        self._db_type = getattr(config, 'DB_TYPE', 'sqlite')
     
-    def get_connection(self) -> sqlite3.Connection:
+    def get_connection(self):
         """Get thread-local database connection"""
         if not hasattr(self._local, 'connection') or self._local.connection is None:
             self._local.connection = self._create_connection()
+            # For MySQL, we might need to check if connection is alive
+            if self._db_type == 'mysql':
+                try:
+                    self._local.connection.ping(reconnect=True, attempts=3, delay=5)
+                except:
+                    # Reconnect if ping fails
+                    self._local.connection = self._create_connection()
         return self._local.connection
     
-    def _create_connection(self) -> sqlite3.Connection:
-        """Create a new database connection with optimal settings"""
-        conn = sqlite3.connect(
-            self._db_path,
-            timeout=DB_BUSY_TIMEOUT_MS / 1000,
-            check_same_thread=False
-        )
-        # Enable WAL mode for better concurrent read performance
-        conn.execute("PRAGMA journal_mode=WAL")
-        # Enable foreign keys
-        conn.execute("PRAGMA foreign_keys=ON")
-        # Return rows as dictionaries
-        conn.row_factory = sqlite3.Row
-        return conn
+    def _create_connection(self):
+        """Create a new database connection"""
+        if self._db_type == 'mysql':
+            import pymysql
+            import pymysql.cursors
+            conn = pymysql.connect(
+                host=config.MYSQL_CONFIG['host'],
+                user=config.MYSQL_CONFIG['user'],
+                password=config.MYSQL_CONFIG['password'],
+                database=config.MYSQL_CONFIG['database'],
+                cursorclass=pymysql.cursors.DictCursor
+            )
+            return conn
+        else:
+            # SQLite default
+            conn = sqlite3.connect(
+                self._db_path,
+                timeout=DB_BUSY_TIMEOUT_MS / 1000,
+                check_same_thread=False
+            )
+            try:
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA foreign_keys=ON")
+            except:
+                pass
+            conn.row_factory = sqlite3.Row
+            return conn
     
     def close(self):
         """Close the thread-local connection"""
@@ -55,14 +77,30 @@ class DatabaseConnection:
             self._local.connection.close()
             self._local.connection = None
     
-    def execute(self, query: str, params: tuple = ()) -> sqlite3.Cursor:
+    def execute(self, query: str, params: tuple = ()):
         """Execute a query and return cursor"""
         conn = self.get_connection()
+        
+        # MySQL Adaptation: Replace ? with %s
+        if self._db_type == 'mysql':
+            query = query.replace('?', '%s')
+            # Pymysql cursor is already DictCursor from connect
+            cursor = conn.cursor() 
+            cursor.execute(query, params)
+            return cursor
+        
         return conn.execute(query, params)
     
-    def executemany(self, query: str, params_list: list) -> sqlite3.Cursor:
+    def executemany(self, query: str, params_list: list):
         """Execute a query with multiple parameter sets"""
         conn = self.get_connection()
+        
+        if self._db_type == 'mysql':
+            query = query.replace('?', '%s')
+            cursor = conn.cursor()
+            cursor.executemany(query, params_list)
+            return cursor
+            
         return conn.executemany(query, params_list)
     
     def commit(self):

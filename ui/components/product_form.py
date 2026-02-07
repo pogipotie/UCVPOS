@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QGraphicsDropShadowEffect, QWidget
 )
 from PyQt6.QtCore import Qt, QDate, QPoint
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtGui import QColor, QFont, QDoubleValidator, QIntValidator
 from database.models import Product
 from datetime import date
 from ui.components.custom_calendar import YearDropdownCalendarWidget
@@ -124,118 +124,37 @@ class ProductFormDialog(QDialog):
         # Price Row
         price_row = QHBoxLayout()
         
-        price_group = self._create_input_group("Unit Price (₱) *")
-        self.price_input = QDoubleSpinBox()
-        self.price_input.setButtonSymbols(QDoubleSpinBox.ButtonSymbols.NoButtons)
-        self.price_input.setDecimals(2)
-        self.price_input.setMaximum(999999.99)
-        self.price_input.setStyleSheet("""
-            background-color: #2C2C2C; color: #03DAC6; font-weight: bold; 
-            padding: 8px; border: 1px solid #333333; border-radius: 0px; font-size: 16px;
-        """)
-        price_group.layout().addWidget(self.price_input)
+        # Price
+        price_group = self._create_input_group("Selling Price (₱)", "Required")
+        self.price_input = price_group.findChild(QLineEdit)
+        self.price_input.setValidator(QDoubleValidator(0.00, 999999.99, 2))
         price_row.addWidget(price_group)
         
-        stock_group = self._create_input_group("Initial Stock")
-        self.stock_input = QSpinBox()
-        self.stock_input.setButtonSymbols(QSpinBox.ButtonSymbols.UpDownArrows)
-        self.stock_input.setMaximum(999999)
-        self.stock_input.setStyleSheet("""
-            QSpinBox {
-                padding: 8px; 
-                background-color: #2C2C2C; 
-                color: white; 
-                border: 1px solid #333333; 
-                border-radius: 0px;
-                padding-right: 25px;
-            }
-            QSpinBox::up-button {
-                subcontrol-origin: border;
-                subcontrol-position: top right;
-                width: 25px;
-                border-left: 1px solid #333333;
-                background-color: #2C2C2C;
-                margin: 1px;
-            }
-            QSpinBox::down-button {
-                subcontrol-origin: border;
-                subcontrol-position: bottom right;
-                width: 25px;
-                border-left: 1px solid #333333;
-                background-color: #2C2C2C;
-                margin: 1px;
-            }
-            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
-                background-color: #333333;
-            }
-            QSpinBox::up-arrow {
-                image: url(assets/arrow_up.svg);
-                width: 12px;
-                height: 12px;
-            }
-            QSpinBox::down-arrow {
-                image: url(assets/arrow_down.svg);
-                width: 12px;
-                height: 12px;
-            }
-        """)
-        stock_group.layout().addWidget(self.stock_input)
-        price_row.addWidget(stock_group)
+        # Cost Price
+        cost_group = self._create_input_group("Cost Price (₱)", "Required")
+        self.cost_input = cost_group.findChild(QLineEdit)
+        self.cost_input.setValidator(QDoubleValidator(0.00, 999999.99, 2))
+        price_row.addWidget(cost_group)
         
         left_col.addLayout(price_row)
+        
         content_layout.addLayout(left_col, 1)
         
         # Right Column (Details)
         right_col = QVBoxLayout()
         right_col.setSpacing(20)
         
-        # Min Stock & Batch
+        # Details Row
         details_row = QHBoxLayout()
         
-        min_stock_group = self._create_input_group("Min Stock Alert")
-        self.min_stock_input = QSpinBox()
-        self.min_stock_input.setMaximum(999999)
-        self.min_stock_input.setValue(10)
-        self.min_stock_input.setStyleSheet("""
-            QSpinBox {
-                padding: 8px; 
-                background-color: #2C2C2C; 
-                color: white; 
-                border: 1px solid #333333; 
-                border-radius: 0px;
-                padding-right: 25px;
-            }
-            QSpinBox::up-button {
-                subcontrol-origin: border;
-                subcontrol-position: top right;
-                width: 25px;
-                border-left: 1px solid #333333;
-                background-color: #2C2C2C;
-                margin: 1px;
-            }
-            QSpinBox::down-button {
-                subcontrol-origin: border;
-                subcontrol-position: bottom right;
-                width: 25px;
-                border-left: 1px solid #333333;
-                background-color: #2C2C2C;
-                margin: 1px;
-            }
-            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
-                background-color: #333333;
-            }
-            QSpinBox::up-arrow {
-                image: url(assets/arrow_up.svg);
-                width: 12px;
-                height: 12px;
-            }
-            QSpinBox::down-arrow {
-                image: url(assets/arrow_down.svg);
-                width: 12px;
-                height: 12px;
-            }
-        """)
-        min_stock_group.layout().addWidget(self.min_stock_input)
+        stock_group = self._create_input_group("Stock Qty", "Required")
+        self.stock_input = stock_group.findChild(QLineEdit)
+        self.stock_input.setValidator(QIntValidator(0, 999999))
+        details_row.addWidget(stock_group)
+        
+        min_stock_group = self._create_input_group("Min Limit", "Required")
+        self.min_stock_input = min_stock_group.findChild(QLineEdit)
+        self.min_stock_input.setValidator(QIntValidator(0, 999999))
         details_row.addWidget(min_stock_group)
         
         batch_group = self._create_input_group("Batch No.", "Optional")
@@ -353,30 +272,15 @@ class ProductFormDialog(QDialog):
         
         return group
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.old_pos = event.globalPosition().toPoint()
-
-    def mouseMoveEvent(self, event):
-        if self.old_pos:
-            delta = event.globalPosition().toPoint() - self.old_pos
-            self.move(self.pos() + delta)
-            self.old_pos = event.globalPosition().toPoint()
-
-    def mouseReleaseEvent(self, event):
-        self.old_pos = None
-
-    def toggle_expiry(self, state):
-        """Enable/disable expiry date input"""
-        self.expiry_input.setEnabled(state == Qt.CheckState.Checked.value)
-    
     def populate_form(self):
         """Fill form with existing product data"""
         self.barcode_input.setText(self.product.barcode)
         self.name_input.setText(self.product.name)
-        self.price_input.setValue(self.product.price)
-        self.stock_input.setValue(self.product.stock_quantity)
-        self.min_stock_input.setValue(self.product.min_stock_level)
+        # Convert numbers to string for LineEdits
+        self.price_input.setText(f"{self.product.price:.2f}" if self.product.price else "")
+        self.cost_input.setText(f"{self.product.cost_price:.2f}" if self.product.cost_price else "")
+        self.stock_input.setText(str(self.product.stock_quantity))
+        self.min_stock_input.setText(str(self.product.min_stock_level))
         self.batch_input.setText(self.product.batch_number or "")
         self.prescription_checkbox.setChecked(self.product.prescription_required)
         
@@ -400,42 +304,75 @@ class ProductFormDialog(QDialog):
             self.name_input.setFocus()
             return False
         
-        if self.price_input.value() <= 0:
-            self._show_error("Price must be greater than 0.")
+        try:
+            price = float(self.price_input.text() or 0)
+            if price <= 0:
+                self._show_error("Price must be greater than 0.")
+                self.price_input.setFocus()
+                return False
+        except ValueError:
+            self._show_error("Invalid price format.")
             self.price_input.setFocus()
             return False
         
         return True
     
-    def _show_error(self, message):
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Validation Error")
-        msg.setText(message)
-        msg.setIcon(QMessageBox.Icon.Warning)
-        msg.setStyleSheet("background-color: #2C2C2C; color: white;")
-        msg.exec()
+    # ... (show_error remains same)
 
     def save_product(self):
         """Validate and save the product"""
         if not self.validate_form():
             return
         
-        self.product.barcode = self.barcode_input.text().strip()
-        self.product.name = self.name_input.text().strip()
-        self.product.price = self.price_input.value()
-        self.product.stock_quantity = self.stock_input.value()
-        self.product.min_stock_level = self.min_stock_input.value()
-        self.product.batch_number = self.batch_input.text().strip() or None
-        self.product.prescription_required = self.prescription_checkbox.isChecked()
-        
-        if self.has_expiry_checkbox.isChecked():
-            qdate = self.expiry_input.date()
-            self.product.expiry_date = date(qdate.year(), qdate.month(), qdate.day())
-        else:
-            self.product.expiry_date = None
-        
-        self.accept()
+        try:
+            self.product.barcode = self.barcode_input.text().strip()
+            self.product.name = self.name_input.text().strip()
+            self.product.price = float(self.price_input.text() or 0.0)
+            self.product.cost_price = float(self.cost_input.text() or 0.0)  # Add cost_price
+            self.product.stock_quantity = int(self.stock_input.text() or 0)
+            self.product.min_stock_level = int(self.min_stock_input.text() or 0)
+            self.product.batch_number = self.batch_input.text().strip() or None
+            self.product.prescription_required = self.prescription_checkbox.isChecked()
+            
+            if self.has_expiry_checkbox.isChecked():
+                qdate = self.expiry_input.date()
+                self.product.expiry_date = date(qdate.year(), qdate.month(), qdate.day())
+            else:
+                self.product.expiry_date = None
+            
+            self.accept()
+        except ValueError:
+             self._show_error("Please check your numeric inputs.")
+             return
     
     def get_product(self) -> Product:
         """Get the product data from the form"""
         return self.product
+
+    def toggle_expiry(self, state):
+        """Enable/Disable expiry date input"""
+        is_checked = (state == Qt.CheckState.Checked.value or state == 2)
+        self.expiry_input.setEnabled(is_checked)
+        
+        if is_checked:
+            self.expiry_input.setStyleSheet("color: white; padding: 5px; background-color: #1E1E1E; border: 1px solid #03DAC6;")
+        else:
+            self.expiry_input.setStyleSheet("color: #777; padding: 5px; background-color: #1E1E1E; border: 1px solid #333;")
+
+    def _show_error(self, message):
+        """Show error toast or message box"""
+        QMessageBox.warning(self, "Validation Error", message)
+
+    # --- Dragging Logic ---
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.old_pos = event.globalPosition().toPoint()
+
+    def mouseMoveEvent(self, event):
+        if self.old_pos:
+            delta = event.globalPosition().toPoint() - self.old_pos
+            self.move(self.pos() + delta)
+            self.old_pos = event.globalPosition().toPoint()
+
+    def mouseReleaseEvent(self, event):
+        self.old_pos = None

@@ -24,3 +24,15 @@ DEFAULT_WINDOW_HEIGHT = 800
 # Business Rules
 MIN_STOCK_WARNING_LEVEL = 10
 ALLOW_NEGATIVE_STOCK = False
+
+# Database Type: 'sqlite' or 'mysql'
+DB_TYPE = 'mysql'
+
+# MySQL Configuration (XAMPP Defaults)
+MYSQL_CONFIG = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': '',
+    'database': 'ucvpos_db',
+    'raise_on_warnings': True
+}
