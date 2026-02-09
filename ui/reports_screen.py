@@ -13,8 +13,11 @@ from datetime import date, datetime, timedelta
 from services.report_service import report_service
 from services.backup_service import backup_service
 from services.auth_service import auth_service
+from services.sales_service import sales_service
 from repositories.sales_repo import sales_repo
+from repositories.audit_repo import audit_repo
 from ui.components.custom_calendar import YearDropdownCalendarWidget
+from PyQt6.QtGui import QColor, QIcon
 
 
 class ReportsScreen(QWidget):
@@ -43,29 +46,37 @@ class ReportsScreen(QWidget):
         self.tabs = QTabWidget()
         self.tabs.setIconSize(QSize(24, 24))
         
+        # Icon paths
+        import os
+        assets_path = os.path.join(os.path.dirname(__file__), "..", "assets", "Reports&Backup assets")
+        
         # Daily Sales Tab
         daily_tab = self._create_daily_tab()
-        self.tabs.addTab(daily_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView), "Daily Sales")
+        self.tabs.addTab(daily_tab, QIcon(os.path.join(assets_path, "dailysales.png")), "Daily Sales")
         
         # Monthly Summary Tab
         monthly_tab = self._create_monthly_tab()
-        self.tabs.addTab(monthly_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogInfoView), "Monthly Summary")
+        self.tabs.addTab(monthly_tab, QIcon(os.path.join(assets_path, "monthlysale.png")), "Monthly Summary")
         
         # Transaction History Tab
         history_tab = self._create_history_tab()
-        self.tabs.addTab(history_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogListView), "Transaction History")
+        self.tabs.addTab(history_tab, QIcon(os.path.join(assets_path, "Transactionhistory.png")), "Transaction History")
         
         # Low Stock Tab
         stock_tab = self._create_stock_tab()
-        self.tabs.addTab(stock_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxWarning), "Low Stock Alert")
+        self.tabs.addTab(stock_tab, QIcon(os.path.join(assets_path, "lowstock.png")), "Low Stock Alert")
         
         # Expiry Tab
         expiry_tab = self._create_expiry_tab()
-        self.tabs.addTab(expiry_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical), "Expiry Report")
+        self.tabs.addTab(expiry_tab, QIcon(os.path.join(assets_path, "Expiryreport.png")), "Expiry Report")
         
         # Data Management (Backup) Tab
         backup_tab = self._create_backup_tab()
-        self.tabs.addTab(backup_tab, self.style().standardIcon(QStyle.StandardPixmap.SP_DriveHDIcon), "Data Management")
+        self.tabs.addTab(backup_tab, QIcon(os.path.join(assets_path, "datamanagement.png")), "Data Management")
+        
+        # Audit Logs Tab (Admin only)
+        audit_tab = self._create_audit_tab()
+        self.tabs.addTab(audit_tab, QIcon(os.path.join(assets_path, "Auditlogs.png")), "Audit Logs")
         
         layout.addWidget(self.tabs, 1)
         
@@ -82,10 +93,105 @@ class ReportsScreen(QWidget):
             
             # Hide Data Management (index 5)
             self.tabs.setTabVisible(5, False)
+            
+            # Hide Audit Logs (index 6) - Admin only
+            self.tabs.setTabVisible(6, False)
         else:
             self.cashier_filter = None
             self.tabs.setTabVisible(1, True)
             self.tabs.setTabVisible(5, True)
+            self.tabs.setTabVisible(6, True)
+
+    def _create_audit_tab(self) -> QWidget:
+        """Create audit logs tab (admin only)"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        # Controls
+        controls = QHBoxLayout()
+        
+        controls.addWidget(QLabel("From:"))
+        self.audit_start = QDateEdit()
+        self.audit_start.setCalendarPopup(True)
+        self.audit_start.setCalendarWidget(YearDropdownCalendarWidget())
+        self.audit_start.setDate(QDate.currentDate().addDays(-7))
+        controls.addWidget(self.audit_start)
+        
+        controls.addWidget(QLabel("To:"))
+        self.audit_end = QDateEdit()
+        self.audit_end.setCalendarPopup(True)
+        self.audit_end.setCalendarWidget(YearDropdownCalendarWidget())
+        self.audit_end.setDate(QDate.currentDate())
+        controls.addWidget(self.audit_end)
+        
+        load_btn = QPushButton("Load Logs")
+        load_btn.clicked.connect(self.load_audit_logs)
+        controls.addWidget(load_btn)
+        
+        controls.addStretch()
+        
+        layout.addLayout(controls)
+        
+        # Table
+        self.audit_table = QTableWidget()
+        self.audit_table.setColumnCount(5)
+        self.audit_table.setHorizontalHeaderLabels([
+            "Timestamp", "Action", "Entity", "Entity ID", "Details"
+        ])
+        header = self.audit_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        self.audit_table.setColumnWidth(0, 150)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        self.audit_table.setColumnWidth(3, 80)
+        self.audit_table.verticalHeader().setDefaultSectionSize(35)
+        self.audit_table.setAlternatingRowColors(True)
+        self.audit_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        layout.addWidget(self.audit_table, 1)
+        
+        return widget
+    
+    def load_audit_logs(self):
+        """Load audit logs for the selected date range"""
+        start_qdate = self.audit_start.date()
+        end_qdate = self.audit_end.date()
+        
+        start_date = date(start_qdate.year(), start_qdate.month(), start_qdate.day())
+        end_date = date(end_qdate.year(), end_qdate.month(), end_qdate.day())
+        
+        logs = audit_repo.get_logs_by_date_range(start_date, end_date)
+        
+        self.audit_table.setRowCount(len(logs))
+        
+        for row, log in enumerate(logs):
+            # Timestamp
+            timestamp_item = QTableWidgetItem(str(log.timestamp))
+            timestamp_item.setForeground(QColor("#888888"))
+            self.audit_table.setItem(row, 0, timestamp_item)
+            
+            # Action with color coding
+            action_item = QTableWidgetItem(log.action)
+            if "VOID" in log.action:
+                action_item.setForeground(QColor("#CF6679"))  # Red
+            elif "CREATE" in log.action or "ADD" in log.action:
+                action_item.setForeground(QColor("#03DAC6"))  # Teal
+            elif "UPDATE" in log.action or "EDIT" in log.action:
+                action_item.setForeground(QColor("#FFB800"))  # Yellow
+            elif "DELETE" in log.action:
+                action_item.setForeground(QColor("#FF4757"))  # Red
+            else:
+                action_item.setForeground(QColor("#FFFFFF"))
+            self.audit_table.setItem(row, 1, action_item)
+            
+            # Entity type
+            self.audit_table.setItem(row, 2, QTableWidgetItem(log.entity_type or "—"))
+            
+            # Entity ID
+            entity_id = str(log.entity_id) if log.entity_id else "—"
+            self.audit_table.setItem(row, 3, QTableWidgetItem(entity_id))
+            
+            # Details
+            self.audit_table.setItem(row, 4, QTableWidgetItem(log.details or "—"))
 
     def _create_backup_tab(self) -> QWidget:
         """Create data management tab"""
@@ -290,11 +396,15 @@ class ReportsScreen(QWidget):
         
         # Table
         self.history_table = QTableWidget()
-        self.history_table.setColumnCount(6)
+        self.history_table.setColumnCount(7)
         self.history_table.setHorizontalHeaderLabels([
-            "ID", "Date/Time", "Items", "Total", "Status", "Cashier"
+            "ID", "Date/Time", "Items", "Total", "Status", "Cashier", "Actions"
         ])
-        self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        header = self.history_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.Fixed)  # Actions column
+        self.history_table.setColumnWidth(6, 100)  # Button column
+        self.history_table.verticalHeader().setDefaultSectionSize(35)  # Row height
         self.history_table.setAlternatingRowColors(True)
         self.history_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         layout.addWidget(self.history_table, 1)
@@ -476,8 +586,94 @@ class ReportsScreen(QWidget):
             self.history_table.setItem(row, 1, QTableWidgetItem(str(sale.sale_date)))
             self.history_table.setItem(row, 2, QTableWidgetItem(str(len(items))))
             self.history_table.setItem(row, 3, QTableWidgetItem(f"₱{sale.total_amount:.2f}"))
-            self.history_table.setItem(row, 4, QTableWidgetItem(sale.status.upper()))
+            
+            # Status with color and tooltip for voided sales
+            status_item = QTableWidgetItem(sale.status.upper())
+            if sale.status == 'voided':
+                status_item.setForeground(QColor("#CF6679"))  # Red for voided
+                # Show void reason as tooltip
+                reason = getattr(sale, 'void_reason', None) or "No reason provided"
+                status_item.setToolTip(f"Reason: {reason}")
+            else:
+                status_item.setForeground(QColor("#03DAC6"))  # Teal for completed
+            self.history_table.setItem(row, 4, status_item)
+            
             self.history_table.setItem(row, 5, QTableWidgetItem(sale.cashier_name or "N/A"))
+            
+            # Void button (only for completed sales)
+            if sale.status == 'completed':
+                void_btn = QPushButton("Void")
+                void_btn.setFixedHeight(22)
+                void_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #CF6679;
+                        color: white;
+                        border: none;
+                        border-radius: 3px;
+                        font-size: 10px;
+                        font-weight: bold;
+                        padding: 2px 10px;
+                    }
+                    QPushButton:hover {
+                        background-color: #E57388;
+                    }
+                """)
+                void_btn.clicked.connect(lambda checked, s=sale: self.void_sale(s))
+                self.history_table.setCellWidget(row, 6, void_btn)
+            else:
+                # View button for voided sales - shows reason
+                view_btn = QPushButton("View")
+                view_btn.setFixedHeight(22)
+                view_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: transparent;
+                        color: #888888;
+                        border: 1px solid #555555;
+                        border-radius: 3px;
+                        font-size: 10px;
+                        padding: 2px 10px;
+                    }
+                    QPushButton:hover {
+                        background-color: #333333;
+                        color: white;
+                    }
+                """)
+                view_btn.clicked.connect(lambda checked, s=sale: self.show_void_details(s))
+                self.history_table.setCellWidget(row, 6, view_btn)
+    
+    def void_sale(self, sale):
+        """Void a sale with custom styled dialog"""
+        from ui.components.void_sale_dialog import VoidSaleDialog
+        from ui.components.action_success_dialog import ActionSuccessDialog
+        
+        dialog = VoidSaleDialog(sale, self)
+        
+        if dialog.exec() == VoidSaleDialog.DialogCode.Accepted:
+            # Get current user
+            user = auth_service.get_current_user()
+            voided_by = user.username if user else "Unknown"
+            reason = dialog.get_reason()
+            
+            success, message = sales_service.void_sale(sale.id, reason, voided_by)
+            
+            if success:
+                # Show success dialog
+                success_dialog = ActionSuccessDialog(
+                    title="Sale Voided",
+                    message=f"Sale #{sale.id} has been voided.\nStock has been restored to inventory.",
+                    parent=self
+                )
+                success_dialog.exec()
+                self.load_transaction_history()  # Refresh table
+            else:
+                QMessageBox.warning(self, "Error", message)
+    
+    def show_void_details(self, sale):
+        """Show void details for a voided sale"""
+        from ui.components.void_details_dialog import VoidDetailsDialog
+        
+        dialog = VoidDetailsDialog(sale, self)
+        dialog.exec()
     
     def load_low_stock(self):
         """Load low stock products"""
@@ -545,13 +741,26 @@ class ReportsScreen(QWidget):
         QMessageBox.information(self, "Export Complete", f"Report saved to:\n{filepath}")
     
     def create_backup(self):
-        """Create database backup"""
-        success, message, path = backup_service.create_backup()
+        """Create database backup with password protection"""
+        from ui.components.backup_password_dialog import BackupPasswordDialog
+        from ui.components.action_success_dialog import ActionSuccessDialog
         
-        if success:
-            QMessageBox.information(
-                self, "Backup Complete",
-                f"Database backup created successfully!\n\nSaved to:\n{path}"
-            )
-        else:
-            QMessageBox.warning(self, "Backup Failed", message)
+        # Show password dialog
+        dialog = BackupPasswordDialog(self)
+        
+        if dialog.exec() == BackupPasswordDialog.DialogCode.Accepted:
+            # Create secure backup with the provided password
+            zip_password = dialog.get_backup_password()
+            
+            success, message, path = backup_service.create_secure_backup(zip_password)
+            
+            if success:
+                # Show success dialog
+                success_dialog = ActionSuccessDialog(
+                    title="Backup Complete",
+                    message=f"Secure backup created!\n\nSaved to:\n{path}",
+                    parent=self
+                )
+                success_dialog.exec()
+            else:
+                QMessageBox.warning(self, "Backup Failed", message)

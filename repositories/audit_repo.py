@@ -64,6 +64,18 @@ class AuditRepository:
         )
         return [self._row_to_audit_log(row) for row in cursor.fetchall()]
     
+    def get_logs_by_date_range(self, start_date: date, end_date: date) -> List[AuditLog]:
+        """Get audit logs between two dates"""
+        start = f"{start_date.isoformat()} 00:00:00"
+        end = f"{end_date.isoformat()} 23:59:59"
+        cursor = db.execute(
+            """SELECT * FROM audit_logs 
+               WHERE timestamp BETWEEN ? AND ?
+               ORDER BY timestamp DESC""",
+            (start, end)
+        )
+        return [self._row_to_audit_log(row) for row in cursor.fetchall()]
+    
     def _row_to_audit_log(self, row) -> AuditLog:
         """Convert database row to AuditLog object"""
         return AuditLog(

@@ -350,7 +350,24 @@ class MainWindow(QMainWindow):
         self.setStyleSheet(MAIN_STYLESHEET)
     
     def closeEvent(self, event):
-        """Handle window close"""
-        from database.connection import db
-        db.close()
-        event.accept()
+        """Handle window close - use logout dialog for confirmation"""
+        # Check if user is logged in
+        user = auth_service.get_current_user()
+        
+        if user:
+            # Use the existing logout dialog
+            dialog = LogoutDialog(self)
+            if dialog.exec():
+                # User confirmed - logout and close
+                auth_service.logout()
+                from database.connection import db
+                db.close()
+                event.accept()
+            else:
+                # User cancelled - ignore close
+                event.ignore()
+        else:
+            # No user logged in, just close
+            from database.connection import db
+            db.close()
+            event.accept()

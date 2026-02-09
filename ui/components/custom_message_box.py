@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QGraphicsDropShadowEffect
 from PyQt6.QtCore import Qt, QSize, QTimer
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtGui import QColor, QFont, QPixmap
+import os
 
 class CustomSuccessDialog(QDialog):
     """A premium styled success dialog"""
@@ -39,10 +40,16 @@ class CustomSuccessDialog(QDialog):
         container_layout.setContentsMargins(30, 30, 30, 30)
         container_layout.setSpacing(20)
 
-        # Icon
-        icon_label = QLabel("✅")
+        # Icon - Use check.png
+        icon_label = QLabel()
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_label.setStyleSheet("font-size: 48px; border: none;")
+        icon_path = os.path.join(os.path.dirname(__file__), "..", "..", "assets", "check.png")
+        if os.path.exists(icon_path):
+            pixmap = QPixmap(icon_path).scaled(64, 64, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            icon_label.setPixmap(pixmap)
+        else:
+            icon_label.setText("✅")
+            icon_label.setStyleSheet("font-size: 48px; border: none;")
         container_layout.addWidget(icon_label)
 
         # Title

@@ -35,6 +35,13 @@ class AuthService:
         """Check if current user is admin"""
         return self._current_user and self._current_user.role == 'admin'
     
+    def verify_password(self, username: str, password: str) -> bool:
+        """Verify a user's password without logging in"""
+        user = user_repo.get_by_username(username)
+        if user:
+            return user_repo.verify_password(user, password)
+        return False
+    
     def ensure_default_admin(self):
         """Create default admin if no users exist"""
         users = user_repo.get_all()

@@ -1,10 +1,12 @@
 """
 Backup Service - Database backup and restore
+Supports both SQLite and MySQL databases
 """
 import os
 import shutil
+import subprocess
 from datetime import datetime
-from config import DATABASE_PATH, BACKUP_DIR
+from config import DATABASE_PATH, BACKUP_DIR, DB_TYPE, MYSQL_CONFIG
 
 
 class BackupService:
@@ -19,24 +21,139 @@ class BackupService:
         Create a timestamped backup of the database
         Returns: (success, message, backup_path)
         """
-        if not os.path.exists(DATABASE_PATH):
-            return False, "Database file not found", ""
+        try:
+            # Generate backup filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            if custom_name:
+                base_name = f"pos_backup_{custom_name}_{timestamp}"
+            else:
+                base_name = f"pos_backup_{timestamp}"
+            
+            if DB_TYPE == 'mysql':
+                return self._create_mysql_backup(base_name)
+            else:
+                return self._create_sqlite_backup(base_name)
+                
+        except Exception as e:
+            return False, f"Backup failed: {str(e)}", ""
+    
+    def create_secure_backup(self, zip_password: str, custom_name: str = None) -> tuple[bool, str, str]:
+        """
+        Create a password-protected ZIP backup of the database
+        Returns: (success, message, zip_path)
+        """
+        import pyzipper
         
         try:
             # Generate backup filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             if custom_name:
-                filename = f"pos_backup_{custom_name}_{timestamp}.db"
+                base_name = f"pos_backup_{custom_name}_{timestamp}"
             else:
-                filename = f"pos_backup_{timestamp}.db"
+                base_name = f"pos_backup_{timestamp}"
             
-            backup_path = os.path.join(self.backup_dir, filename)
+            # Step 1: Create the database backup first
+            if DB_TYPE == 'mysql':
+                success, message, sql_path = self._create_mysql_backup(base_name)
+            else:
+                success, message, sql_path = self._create_sqlite_backup(base_name)
             
-            # Copy database file
-            shutil.copy2(DATABASE_PATH, backup_path)
+            if not success:
+                return False, message, ""
             
-            return True, f"Backup created successfully", backup_path
+            # Step 2: Create password-protected ZIP
+            zip_filename = f"{base_name}_secure.zip"
+            zip_path = os.path.join(self.backup_dir, zip_filename)
             
+            # Use AES-256 encryption
+            with pyzipper.AESZipFile(
+                zip_path,
+                'w',
+                compression=pyzipper.ZIP_DEFLATED,
+                encryption=pyzipper.WZ_AES
+            ) as zf:
+                zf.setpassword(zip_password.encode('utf-8'))
+                # Add the SQL/DB file to the ZIP
+                backup_filename = os.path.basename(sql_path)
+                zf.write(sql_path, backup_filename)
+            
+            # Step 3: Delete the original unencrypted file
+            if os.path.exists(sql_path):
+                os.remove(sql_path)
+            
+            return True, "Secure backup created successfully", zip_path
+            
+        except Exception as e:
+            return False, f"Secure backup failed: {str(e)}", ""
+    
+    def _create_sqlite_backup(self, base_name: str) -> tuple[bool, str, str]:
+        """Create SQLite backup by copying the database file"""
+        if not os.path.exists(DATABASE_PATH):
+            return False, "Database file not found", ""
+        
+        filename = f"{base_name}.db"
+        backup_path = os.path.join(self.backup_dir, filename)
+        
+        # Copy database file
+        shutil.copy2(DATABASE_PATH, backup_path)
+        
+        return True, "Backup created successfully", backup_path
+    
+    def _create_mysql_backup(self, base_name: str) -> tuple[bool, str, str]:
+        """Create MySQL backup using mysqldump"""
+        filename = f"{base_name}.sql"
+        backup_path = os.path.join(self.backup_dir, filename)
+        
+        # Build mysqldump command
+        host = MYSQL_CONFIG.get('host', 'localhost')
+        user = MYSQL_CONFIG.get('user', 'root')
+        password = MYSQL_CONFIG.get('password', '')
+        database = MYSQL_CONFIG.get('database', 'ucvpos_db')
+        
+        # Common XAMPP mysqldump paths on Windows
+        mysqldump_paths = [
+            r"C:\xampp\mysql\bin\mysqldump.exe",
+            r"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe",
+            r"C:\Program Files (x86)\MySQL\MySQL Server 8.0\bin\mysqldump.exe",
+            "mysqldump"  # Try PATH
+        ]
+        
+        mysqldump_exe = None
+        for path in mysqldump_paths:
+            if path == "mysqldump" or os.path.exists(path):
+                mysqldump_exe = path
+                break
+        
+        if not mysqldump_exe:
+            return False, "mysqldump not found. Please ensure MySQL/XAMPP is installed.", ""
+        
+        # Build command
+        cmd = [mysqldump_exe, f"--host={host}", f"--user={user}", database]
+        
+        if password:
+            cmd.insert(3, f"--password={password}")
+        
+        try:
+            # Run mysqldump and save output to file
+            with open(backup_path, 'w', encoding='utf-8') as f:
+                result = subprocess.run(
+                    cmd,
+                    stdout=f,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    shell=True
+                )
+            
+            if result.returncode != 0:
+                # Clean up empty file on error
+                if os.path.exists(backup_path):
+                    os.remove(backup_path)
+                return False, f"mysqldump error: {result.stderr}", ""
+            
+            return True, "MySQL backup created successfully", backup_path
+            
+        except FileNotFoundError:
+            return False, "mysqldump not found in PATH. Please ensure MySQL is installed.", ""
         except Exception as e:
             return False, f"Backup failed: {str(e)}", ""
     
@@ -48,14 +165,24 @@ class BackupService:
             return backups
         
         for filename in os.listdir(self.backup_dir):
-            if filename.endswith('.db'):
+            if filename.endswith('.db') or filename.endswith('.sql') or filename.endswith('.zip'):
                 filepath = os.path.join(self.backup_dir, filename)
                 stat = os.stat(filepath)
+                
+                # Determine type
+                if filename.endswith('.zip'):
+                    backup_type = 'Secure (ZIP)'
+                elif filename.endswith('.sql'):
+                    backup_type = 'MySQL'
+                else:
+                    backup_type = 'SQLite'
+                
                 backups.append({
                     'filename': filename,
                     'path': filepath,
                     'size': stat.st_size,
-                    'created': datetime.fromtimestamp(stat.st_mtime)
+                    'created': datetime.fromtimestamp(stat.st_mtime),
+                    'type': backup_type
                 })
         
         # Sort by creation time, newest first
@@ -71,18 +198,72 @@ class BackupService:
             return False, "Backup file not found"
         
         try:
-            # Create a safety backup first
-            safety_backup = os.path.join(
-                self.backup_dir, 
-                f"pre_restore_safety_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
-            )
-            if os.path.exists(DATABASE_PATH):
-                shutil.copy2(DATABASE_PATH, safety_backup)
+            if backup_path.endswith('.sql'):
+                return self._restore_mysql_backup(backup_path)
+            else:
+                return self._restore_sqlite_backup(backup_path)
+                
+        except Exception as e:
+            return False, f"Restore failed: {str(e)}"
+    
+    def _restore_sqlite_backup(self, backup_path: str) -> tuple[bool, str]:
+        """Restore SQLite database from backup"""
+        # Create a safety backup first
+        safety_backup = os.path.join(
+            self.backup_dir, 
+            f"pre_restore_safety_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+        )
+        if os.path.exists(DATABASE_PATH):
+            shutil.copy2(DATABASE_PATH, safety_backup)
+        
+        # Restore from backup
+        shutil.copy2(backup_path, DATABASE_PATH)
+        
+        return True, "Database restored successfully. Previous database saved as safety backup."
+    
+    def _restore_mysql_backup(self, backup_path: str) -> tuple[bool, str]:
+        """Restore MySQL database from SQL backup"""
+        host = MYSQL_CONFIG.get('host', 'localhost')
+        user = MYSQL_CONFIG.get('user', 'root')
+        password = MYSQL_CONFIG.get('password', '')
+        database = MYSQL_CONFIG.get('database', 'ucvpos_db')
+        
+        # Common XAMPP mysql paths on Windows
+        mysql_paths = [
+            r"C:\xampp\mysql\bin\mysql.exe",
+            r"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe",
+            "mysql"
+        ]
+        
+        mysql_exe = None
+        for path in mysql_paths:
+            if path == "mysql" or os.path.exists(path):
+                mysql_exe = path
+                break
+        
+        if not mysql_exe:
+            return False, "mysql client not found. Please ensure MySQL/XAMPP is installed."
+        
+        # Build command
+        cmd = [mysql_exe, f"--host={host}", f"--user={user}", database]
+        
+        if password:
+            cmd.insert(3, f"--password={password}")
+        
+        try:
+            with open(backup_path, 'r', encoding='utf-8') as f:
+                result = subprocess.run(
+                    cmd,
+                    stdin=f,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    shell=True
+                )
             
-            # Restore from backup
-            shutil.copy2(backup_path, DATABASE_PATH)
+            if result.returncode != 0:
+                return False, f"MySQL restore error: {result.stderr}"
             
-            return True, "Database restored successfully. Previous database saved as safety backup."
+            return True, "MySQL database restored successfully."
             
         except Exception as e:
             return False, f"Restore failed: {str(e)}"
