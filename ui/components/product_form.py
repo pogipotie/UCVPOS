@@ -34,6 +34,18 @@ class ProductFormDialog(QDialog):
         
         if self.is_edit_mode:
             self.populate_form()
+        
+        # Auto-focus barcode input for immediate scanning
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(100, lambda: self.barcode_input.setFocus())
+    
+    def keyPressEvent(self, event):
+        """Prevent Enter/Return key from closing the dialog (barcode scanner fix)"""
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            # Don't let QDialog handle Enter - it would close the dialog
+            event.accept()
+            return
+        super().keyPressEvent(event)
             
     def setup_ui(self):
         # Main Layout
@@ -220,6 +232,8 @@ class ProductFormDialog(QDialog):
         cancel_btn = QPushButton("Cancel")
         cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         cancel_btn.setFixedSize(100, 40)
+        cancel_btn.setAutoDefault(False)
+        cancel_btn.setDefault(False)
         cancel_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent; border: 1px solid #444; 
@@ -233,6 +247,8 @@ class ProductFormDialog(QDialog):
         save_btn = QPushButton("Save Product")
         save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         save_btn.setFixedSize(140, 40)
+        save_btn.setAutoDefault(False)
+        save_btn.setDefault(False)
         save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #03DAC6; border: none; 
