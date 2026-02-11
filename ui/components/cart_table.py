@@ -224,6 +224,12 @@ class CartTable(QWidget):
             self.total_label.setText(f"₱{total:,.2f}")
         
         self.item_count_label.setText(f"{sum(i.quantity for i in items)} items")
+        
+        # Auto-select the last item for convenience
+        if self.table.rowCount() > 0:
+            self.table.selectRow(self.table.rowCount() - 1)
+            # Ensure visible
+            self.table.scrollToBottom()
     
     def _create_quantity_widget(self, product_id: int, quantity: int) -> QWidget:
         """Create quantity adjustment widget"""

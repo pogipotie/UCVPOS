@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import QApplication, QSplashScreen, QMessageBox, QDialog
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QPixmap
 
-from config import APP_NAME, APP_VERSION, BACKUP_DIR
+from config import APP_NAME, APP_VERSION, BACKUP_DIR, resource_path
 from database.schema import initialize_database
 from ui.main_window import MainWindow
 from ui.login_dialog import LoginDialog
@@ -41,7 +41,7 @@ def create_splash() -> QSplashScreen:
     painter.drawRect(0, 0, width-1, height-1)
     
     # 3. Logo
-    logo_path = os.path.join(os.path.dirname(__file__), "assets", "pharmacy.png")
+    logo_path = resource_path(os.path.join("assets", "pharmacy.png"))
     if os.path.exists(logo_path):
         logo_pixmap = QPixmap(logo_path)
         logo_scaled = logo_pixmap.scaled(80, 80, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
@@ -97,7 +97,7 @@ def main():
     
     # Set App Icon
     from PyQt6.QtGui import QIcon
-    icon_path = os.path.join(os.path.dirname(__file__), "assets", "pharmacy.png")
+    icon_path = resource_path(os.path.join("assets", "pharmacy.png"))
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
     
@@ -168,12 +168,147 @@ def main():
         
     except Exception as e:
         splash.close()
-        QMessageBox.critical(
-            None, 
-            "Startup Error",
-            f"Failed to start application:\n\n{str(e)}"
-        )
+        _show_startup_error(str(e))
         sys.exit(1)
+
+
+def _show_startup_error(error_msg: str):
+    """Show a premium dark-themed startup error dialog"""
+    from PyQt6.QtWidgets import (
+        QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+        QPushButton, QFrame, QGraphicsDropShadowEffect
+    )
+    from PyQt6.QtGui import QColor, QPainter, QBrush, QLinearGradient
+
+    dialog = QDialog()
+    dialog.setWindowTitle("Startup Error")
+    dialog.setFixedSize(480, 320)
+    dialog.setStyleSheet("background-color: #0D1117;")
+
+    layout = QVBoxLayout(dialog)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(0)
+
+    # ── Top accent bar ──
+    accent = QFrame()
+    accent.setFixedHeight(4)
+    accent.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #E94560, stop:1 #FF6B6B);")
+    layout.addWidget(accent)
+
+    # ── Content container ──
+    content = QFrame()
+    content.setStyleSheet("""
+        QFrame {
+            background-color: #161B22;
+            border: 1px solid #30363D;
+            border-top: none;
+            margin: 12px;
+            border-radius: 0px;
+        }
+    """)
+    shadow = QGraphicsDropShadowEffect()
+    shadow.setBlurRadius(25)
+    shadow.setColor(QColor(0, 0, 0, 120))
+    shadow.setOffset(0, 6)
+    content.setGraphicsEffect(shadow)
+
+    c_layout = QVBoxLayout(content)
+    c_layout.setContentsMargins(28, 28, 28, 24)
+    c_layout.setSpacing(16)
+
+    # ── Icon + Title row ──
+    header = QHBoxLayout()
+    header.setSpacing(14)
+
+    icon_frame = QFrame()
+    icon_frame.setFixedSize(48, 48)
+    icon_frame.setStyleSheet("""
+        QFrame {
+            background-color: rgba(233, 69, 96, 0.15);
+            border: 1px solid rgba(233, 69, 96, 0.3);
+            border-radius: 10px;
+            margin: 0px;
+        }
+    """)
+    icon_lbl = QLabel("✕", icon_frame)
+    icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    icon_lbl.setFixedSize(48, 48)
+    icon_lbl.setStyleSheet("""
+        color: #E94560;
+        font-size: 26px;
+        font-weight: bold;
+        border: none;
+        background: transparent;
+    """)
+    header.addWidget(icon_frame)
+
+    title = QLabel("Unable to Start")
+    title.setStyleSheet("""
+        color: #F0F6FC;
+        font-size: 18px;
+        font-weight: bold;
+        border: none;
+        background: transparent;
+    """)
+    header.addWidget(title)
+    header.addStretch()
+    c_layout.addLayout(header)
+
+    # ── Separator ──
+    sep = QFrame()
+    sep.setFixedHeight(1)
+    sep.setStyleSheet("background-color: #30363D; border: none; margin: 0px;")
+    c_layout.addWidget(sep)
+
+    # ── Error message (user-friendly) ──
+    friendly = (
+        "The application could not connect to the database.\n\n"
+        "Please make sure your MySQL service is running\n"
+        "(XAMPP or MySQL Server), then try again."
+    )
+    msg = QLabel(friendly)
+    msg.setWordWrap(True)
+    msg.setStyleSheet("""
+        color: #8B949E;
+        font-size: 13px;
+        line-height: 1.5;
+        border: none;
+        background: transparent;
+        padding: 4px 0;
+    """)
+    c_layout.addWidget(msg)
+
+    c_layout.addStretch()
+
+    # ── Button row ──
+    btn_row = QHBoxLayout()
+    btn_row.addStretch()
+
+    ok_btn = QPushButton("OK")
+    ok_btn.setFixedSize(120, 38)
+    ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+    ok_btn.setStyleSheet("""
+        QPushButton {
+            background-color: #E94560;
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: bold;
+            border: none;
+            border-radius: 0px;
+        }
+        QPushButton:hover {
+            background-color: #D63851;
+        }
+        QPushButton:pressed {
+            background-color: #B00020;
+        }
+    """)
+    ok_btn.clicked.connect(dialog.accept)
+    btn_row.addWidget(ok_btn)
+    c_layout.addLayout(btn_row)
+
+    layout.addWidget(content)
+    dialog.exec()
 
 
 if __name__ == "__main__":

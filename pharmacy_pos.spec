@@ -16,11 +16,17 @@ a = Analysis(
     ['main.py'],
     pathex=[spec_dir],
     binaries=[],
-    datas=[],
+    datas=[
+        ('assets', 'assets'),
+        ('config.py', '.'),
+        ('settings.json', '.'),
+    ],
     hiddenimports=[
         'PyQt6.QtCore',
         'PyQt6.QtWidgets',
         'PyQt6.QtGui',
+        'mysql.connector',
+        'mysql.connector.plugins',
         'sqlite3',
         'openpyxl',
         'openpyxl.styles',
@@ -33,12 +39,11 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         'tkinter',
-        'matplotlib',
-        'numpy',
         'pandas',
         'scipy',
-        'PIL',
         'cv2',
+        'torch', 
+        'ultralytics',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
@@ -68,5 +73,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # Add icon path here if you have one
+    icon='assets/POS.ico',
 )

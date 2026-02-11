@@ -88,9 +88,10 @@ class BarcodeInputLarge(BarcodeInput):
         icon_label.setScaledContents(True)
         icon_label.setStyleSheet("background: transparent; border: none;")
         
-        import os
+        import os.path
         from PyQt6.QtGui import QPixmap
-        icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "assets", "search.png")
+        from config import resource_path
+        icon_path = resource_path(os.path.join("assets", "search.png"))
         if os.path.exists(icon_path):
             icon_label.setPixmap(QPixmap(icon_path))
         else:

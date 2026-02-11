@@ -1,3 +1,5 @@
+8995201800530
+8995201800530
 """
 Cashier Screen - Main POS checkout interface
 Optimized for fast barcode scanning and keyboard-driven workflow
@@ -6,8 +8,8 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
     QLabel, QMessageBox, QFrame, QHeaderView, QGroupBox, QInputDialog, QCompleter, QDialog
 )
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtCore import Qt, QTimer, QEvent
+from PyQt6.QtGui import QKeySequence, QShortcut, QKeyEvent
 
 from ui.components.barcode_input import BarcodeInputLarge
 from ui.components.action_confirm_dialog import ActionConfirmDialog
@@ -15,6 +17,101 @@ from ui.components.cart_table import CartTable
 from ui.components.product_selection_dialog import ProductSelectionDialog
 from ui.components.sale_success_dialog import SaleSuccessDialog
 from ui.components.prescription_dialog import PrescriptionDialog
+from ui.payment_dialog import PaymentDialog
+from services.sales_service import sales_service
+from services.compliance_service import compliance_service
+from services.inventory_service import inventory_service
+from services.auth_service import auth_service
+from ui.components.custom_message_box import CustomErrorDialog
+
+class CashierScreen(QWidget):
+    """
+    Main POS checkout screen
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setup_ui()
+        self.setup_shortcuts()
+        self.setup_completer() # Initialize autocomplete
+        
+        # Start new sale session immediately
+        self.start_new_sale()
+
+    # ... (existing methods until on_barcode_scanned) ...
+
+    def on_barcode_scanned(self, barcode: str):
+        """Handle barcode scan or product name search"""
+        if not barcode:
+            return
+            
+        # 1. Try adding by barcode (direct match)
+        success, message, compliance_warning = sales_service.add_by_barcode(barcode)
+        print(f"DEBUG: Barcode Scan - Success: {success}, Message: '{message}'")
+        
+        # 2. If valid barcode, handle it
+        if success:
+            self._handle_add_success(message, compliance_warning)
+            return
+        
+        # Check specifically for out-of-stock error
+        if not success and ("Insufficient stock" in message or "Stock limit" in message):
+            print("DEBUG: Out of stock error detected, showing dialog")
+            dialog = CustomErrorDialog(self, "Out of Stock", message)
+            dialog.exec()
+            self.barcode_input.focus_input()
+            return
+
+        # 3. If not found, try searching by name
+        # Only if the error suggests not found (or just always try search if simple add failed)
+        products = inventory_service.search_products(barcode)
+        
+        if not products:
+            self.show_status(f"Product not found: '{barcode}'", "error")
+            self.barcode_input.focus_input()
+            return
+            
+        # 4. Handle search results
+        if len(products) == 1:
+            # Single match - add it
+            product = products[0]
+            success, message, compliance_warning = sales_service.add_by_barcode(product.barcode)
+            if success:
+                self._handle_add_success(f"Added: {product.name}", compliance_warning)
+            else:
+                if "Insufficient stock" in message or "Stock limit" in message:
+                    dialog = CustomErrorDialog(self, "Out of Stock", message)
+                    dialog.exec()
+                else:
+                    self.show_status(message, "error")
+        else:
+            # Multiple matches - use custom dialog
+            dialog = ProductSelectionDialog(products, self)
+            
+            if dialog.exec():
+                selected_product = dialog.get_selected_product()
+                selected_quantity = dialog.get_selected_quantity()
+                
+                if selected_product:
+                    success, message, compliance_warning = sales_service.add_by_barcode(
+                        selected_product.barcode, 
+                        quantity=selected_quantity
+                    )
+                    
+                    if success:
+                        self._handle_add_success(message, compliance_warning)
+                    else:
+                        if "Insufficient stock" in message or "Stock limit" in message:
+                            dialog = CustomErrorDialog(self, "Stock Error", message)
+                            dialog.exec()
+                        else:
+                            self.show_status(message, "error")
+        
+        self.barcode_input.focus_input()
+from ui.components.cart_table import CartTable
+from ui.components.product_selection_dialog import ProductSelectionDialog
+from ui.components.sale_success_dialog import SaleSuccessDialog
+from ui.components.barcode_input import BarcodeInputLarge
+from ui.components.action_confirm_dialog import ActionConfirmDialog
 from ui.payment_dialog import PaymentDialog
 from services.sales_service import sales_service
 from services.compliance_service import compliance_service
@@ -47,6 +144,22 @@ class CashierScreen(QWidget):
         completer.activated.connect(self.on_barcode_scanned)
         
         self.barcode_input.input_field.setCompleter(completer)
+
+    def eventFilter(self, obj, event):
+        """Handle key events from child widgets"""
+        if obj == self.barcode_input.input_field and event.type() == QEvent.Type.KeyPress:
+            
+            if event.key() == Qt.Key.Key_Delete or event.key() == Qt.Key.Key_Backspace:
+                # If input is empty, delete/backspace triggers remove item from cart
+                text = self.barcode_input.input_field.text()
+                if not text:
+                    self.remove_selected_item()
+                    return True # Consume event
+                # If input has text, let QLineEdit handle it (delete char)
+            
+            # F1 handled by MainWindow shortcut now
+                
+        return super().eventFilter(obj, event)
 
     def setup_ui(self):
         # Main Layout (Fluid)
@@ -99,6 +212,8 @@ class CashierScreen(QWidget):
         self.barcode_input.setObjectName("barcodeInput")
         self.barcode_input.setPlaceholderText("Scan barcode or type product name...")
         self.barcode_input.barcode_scanned.connect(self.on_barcode_scanned)
+        # Install event filter to handle Delete key even when focused
+        self.barcode_input.input_field.installEventFilter(self)
         scan_layout.addWidget(self.barcode_input, 1)
         
         left_layout.addWidget(scan_container)
@@ -318,8 +433,8 @@ class CashierScreen(QWidget):
     
     def setup_shortcuts(self):
         """Setup keyboard shortcuts"""
-        # F1 - New Sale
-        QShortcut(QKeySequence("F1"), self, self.start_new_sale)
+        # F1 - New Sale (Handled by MainWindow)
+        # QShortcut(QKeySequence("F1"), self, self.start_new_sale)
         
         # F12 - Checkout
         QShortcut(QKeySequence("F12"), self, self.process_checkout)
@@ -368,12 +483,21 @@ class CashierScreen(QWidget):
             self._handle_add_success(message, compliance_warning)
             return
             
+        # Check specifically for out-of-stock error
+        if not success and ("Insufficient stock" in message or "Stock limit" in message):
+            dialog = CustomErrorDialog(self, "Out of Stock", message)
+            dialog.exec()
+            self.barcode_input.focus_input()
+            return
+            
         # 3. If not found, try searching by name
         # Only if the error suggests not found (or just always try search if simple add failed)
         products = inventory_service.search_products(barcode)
         
         if not products:
-            self.show_status(f"Product not found: '{barcode}'", "error")
+            # self.show_status(f"Product not found: '{barcode}'", "error")
+            dialog = CustomErrorDialog(self, "Product Not Found", f"No product found with barcode or name:\n'{barcode}'")
+            dialog.exec()
             self.barcode_input.focus_input()
             return
             
@@ -445,7 +569,11 @@ class CashierScreen(QWidget):
             if success:
                 self.update_cart_display()
             else:
-                self.show_status(message, "error")
+                if "Insufficient stock" in message or "Stock limit" in message:
+                    dialog = CustomErrorDialog(self, "Stock Error", message)
+                    dialog.exec()
+                else:
+                    self.show_status(message, "error")
         
         self.barcode_input.focus_input()
     
@@ -463,6 +591,7 @@ class CashierScreen(QWidget):
     def remove_selected_item(self):
         """Remove the selected item from cart"""
         product_id = self.cart_table.get_selected_product_id()
+        
         if product_id:
             self.on_item_removed(product_id)
         else:

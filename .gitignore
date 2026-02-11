@@ -1,1 +1,7 @@
-# gitignore cleared by user request
+__pycache__/
+*.pyc
+build/
+dist/
+.venv/
+env/
+*.egg-info/

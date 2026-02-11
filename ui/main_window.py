@@ -17,7 +17,7 @@ from ui.admin_dashboard import AdminDashboard
 from ui.settings_screen import SettingsScreen
 from ui.components.logout_dialog import LogoutDialog
 from services.auth_service import auth_service
-from config import APP_NAME, APP_VERSION
+from config import APP_NAME, APP_VERSION, resource_path
 from PyQt6.QtWidgets import QMessageBox
 
 
@@ -37,8 +37,9 @@ class MainWindow(QMainWindow):
         from PyQt6.QtGui import QKeySequence, QShortcut
         
         # F1 -> POS (Index 1)
+        # F1 -> POS (Index 1) or New Sale (if already on POS)
         self.shortcut_f1 = QShortcut(QKeySequence("F1"), self)
-        self.shortcut_f1.activated.connect(lambda: self._navigate_to(1))
+        self.shortcut_f1.activated.connect(self._handle_f1)
         
         # F2 -> Inventory (Index 2)
         self.shortcut_f2 = QShortcut(QKeySequence("F2"), self)
@@ -51,6 +52,18 @@ class MainWindow(QMainWindow):
         # F4 -> Reports (Index 3)
         self.shortcut_f4 = QShortcut(QKeySequence("F4"), self)
         self.shortcut_f4.activated.connect(lambda: self._navigate_to(3))
+        
+    def _handle_f1(self):
+        """Handle F1 key sequence"""
+        current_index = self.content_stack.currentIndex()
+        
+        # If already on POS screen (Index 1), trigger New Sale directly
+        if current_index == 1:
+            if hasattr(self.cashier_screen, 'start_new_sale'):
+                self.cashier_screen.start_new_sale()
+        else:
+            # Navigate to POS
+            self._navigate_to(1)
     
     def setup_ui(self):
         self.setWindowTitle(f"{APP_NAME} v{APP_VERSION}")
@@ -129,7 +142,7 @@ class MainWindow(QMainWindow):
         logo_icon.setScaledContents(True)
         
         # Navigate up from ui/ to root
-        icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "pharmacy.png")
+        icon_path = resource_path(os.path.join("assets", "pharmacy.png"))
         if os.path.exists(icon_path):
             pixmap = QPixmap(icon_path)
             logo_icon.setPixmap(pixmap)
@@ -219,7 +232,7 @@ class MainWindow(QMainWindow):
         
         if icon_path:
             # Resolve path relative to root
-            full_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), icon_path)
+            full_path = resource_path(icon_path)
             if os.path.exists(full_path):
                 btn.setIcon(QIcon(full_path))
                 btn.setIconSize(QSize(24, 24))
@@ -248,7 +261,7 @@ class MainWindow(QMainWindow):
                 # Fallback style if icon missing
                 pass
         
-        if not icon_path or not os.path.exists(os.path.join(os.path.dirname(os.path.dirname(__file__)), icon_path)):
+        if not icon_path or not os.path.exists(resource_path(icon_path)):
              btn.setStyleSheet("""
                 QPushButton {
                     background-color: transparent;
