@@ -106,8 +106,8 @@ class DatabasePage(QWizardPage):
         }
         
         try:
-            with open(config.DB_CONFIG_FILE, 'w') as f:
-                json.dump(new_config, f, indent=4)
+            if not config.save_config(new_config):
+                raise Exception("Failed to write config file")
                 
             # Update runtime config
             config.MYSQL_CONFIG.update(new_config)

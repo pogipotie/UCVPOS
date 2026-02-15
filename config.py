@@ -8,7 +8,17 @@ APP_NAME = "DoubleA POS"
 APP_VERSION = "1.0.0"
 
 # Database Configuration
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    # If compiled, use %LOCALAPPDATA% to hide it from user
+    # e.g. C:\Users\Name\AppData\Local\DoubleA_POS\
+    local_app_data = os.getenv('LOCALAPPDATA', os.path.expanduser('~\\AppData\\Local'))
+    BASE_DIR = os.path.join(local_app_data, APP_NAME.replace(" ", "_"))
+    # Ensure directory exists
+    os.makedirs(BASE_DIR, exist_ok=True)
+else:
+    # If running from source, use the directory of this file
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 DATABASE_PATH = os.path.join(BASE_DIR, "pos.db")
 BACKUP_DIR = os.path.join(BASE_DIR, "backups")
 
@@ -42,14 +52,59 @@ MYSQL_CONFIG = {
 }
 
 # Try to load from file
+# Config Encryption Helpers
+import base64
 import json
-if os.path.exists(DB_CONFIG_FILE):
+
+CONFIG_KEY = "UCVPOS_SECURE_KEY"  # Simple key for obfuscation
+
+def _xor_cipher(text: str, key: str) -> str:
+    return "".join(chr(ord(c) ^ ord(key[i % len(key)])) for i, c in enumerate(text))
+
+def save_config(config_data: dict, filepath: str = DB_CONFIG_FILE):
+    """Save config with encryption"""
     try:
-        with open(DB_CONFIG_FILE, 'r') as f:
-            saved_config = json.load(f)
-            MYSQL_CONFIG.update(saved_config)
+        json_str = json.dumps(config_data)
+        # 1. XOR
+        encrypted = _xor_cipher(json_str, CONFIG_KEY)
+        # 2. Base64
+        b64_encoded = base64.b64encode(encrypted.encode()).decode()
+        
+        with open(filepath, 'w') as f:
+            f.write(b64_encoded)
+        return True
     except Exception as e:
-        print(f"Error loading db_config.json: {e}")
+        print(f"Error saving config: {e}")
+        return False
+
+def load_config(filepath: str = DB_CONFIG_FILE) -> dict:
+    """Load encrypted config"""
+    if not os.path.exists(filepath):
+        return {}
+        
+    try:
+        with open(filepath, 'r') as f:
+            content = f.read().strip()
+            
+        # Try loading as plain JSON first (migration / backward compatibility)
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            # Not JSON, try decrypting
+            pass
+            
+        # Decrypt
+        encrypted = base64.b64decode(content).decode()
+        json_str = _xor_cipher(encrypted, CONFIG_KEY)
+        return json.loads(json_str)
+    except Exception as e:
+        print(f"Error loading config: {e}")
+        return {}
+
+# Try to load from file
+saved_config = load_config()
+if saved_config:
+    MYSQL_CONFIG.update(saved_config)
 
 import sys
 
