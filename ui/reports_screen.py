@@ -1,6 +1,7 @@
 """
 Reports Screen - Sales reports and data exports
 """
+import os
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
     QLabel, QTableWidget, QTableWidgetItem, QFrame,
@@ -17,6 +18,7 @@ from services.sales_service import sales_service
 from services.settings_service import settings_service
 from repositories.sales_repo import sales_repo
 from repositories.audit_repo import audit_repo
+from repositories.product_repo import product_repo
 from ui.components.custom_calendar import YearDropdownCalendarWidget
 from PyQt6.QtGui import QColor, QIcon
 
@@ -729,6 +731,12 @@ class ReportsScreen(QWidget):
         qdate = self.daily_date.date()
         report_date = date(qdate.year(), qdate.month(), qdate.day())
         
+        # Check for data first
+        sales = sales_repo.get_sales_by_date(report_date, self.cashier_filter)
+        if not sales:
+            QMessageBox.warning(self, "No Data", "No transactions found for the selected date.")
+            return
+        
         # Get default path
         default_dir = settings_service.get("system", "reports_path") or os.path.expanduser("~/Documents")
         default_filename = f"daily_sales_{report_date.isoformat()}.csv"
@@ -748,6 +756,12 @@ class ReportsScreen(QWidget):
         
         start_date = date(start_qdate.year(), start_qdate.month(), start_qdate.day())
         end_date = date(end_qdate.year(), end_qdate.month(), end_qdate.day())
+        
+        # Check for data first
+        sales = sales_repo.get_sales_by_date_range(start_date, end_date, self.cashier_filter)
+        if not sales:
+            QMessageBox.warning(self, "No Data", "No transactions found for the selected period.")
+            return
         
         # Get default path
         default_dir = settings_service.get("system", "reports_path") or os.path.expanduser("~/Documents")
@@ -770,6 +784,13 @@ class ReportsScreen(QWidget):
     
     def export_low_stock(self):
         """Export low stock to CSV"""
+        # Check if any products exist
+        # Note: report_service.export_inventory_to_csv currently exports ALL inventory
+        products = product_repo.get_all(limit=1)
+        if not products:
+             QMessageBox.warning(self, "No Data", "No inventory items found to export.")
+             return
+             
         # Get default path
         default_dir = settings_service.get("system", "reports_path") or os.path.expanduser("~/Documents")
         default_filename = f"low_stock_{date.today().isoformat()}.csv"

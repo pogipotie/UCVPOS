@@ -2,6 +2,7 @@
 Pharmacy POS Configuration Constants
 """
 import os
+import sys
 
 # Application Info
 APP_NAME = "DoubleA POS"

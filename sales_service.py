@@ -114,25 +114,29 @@ class SalesService:
         if not product:
             return False, f"Product not found: {barcode}", None
         
-        # Check compliance
-        can_sell, warning_type, warning_msg = compliance_service.check_product_sellable(product)
+        # Check if already in cart
+        existing = self.current_session.find_cart_item(product.id)
         
+        compliance_warning = None
+        
+        # Only check compliance if NOT already in cart
+        if not existing:
+            # Check compliance
+            can_sell, warning_type, warning_msg = compliance_service.check_product_sellable(product)
+            
+            if warning_type:
+                compliance_warning = compliance_service.format_compliance_message(
+                    warning_type, warning_msg
+                )
+            
+            # Block if cannot sell
+            if not can_sell:
+                return False, warning_msg, compliance_warning
+
         # If trying to add multiple, check stock first
         if quantity > product.stock_quantity:
              return False, f"Insufficient stock. Available: {product.stock_quantity}", None
         
-        compliance_warning = None
-        if warning_type:
-            compliance_warning = compliance_service.format_compliance_message(
-                warning_type, warning_msg
-            )
-        
-        # Block if cannot sell
-        if not can_sell:
-            return False, warning_msg, compliance_warning
-        
-        # Check if already in cart
-        existing = self.current_session.find_cart_item(product.id)
         if existing:
             # Check if we have enough stock for additional quantity
             new_qty = existing.quantity + quantity
