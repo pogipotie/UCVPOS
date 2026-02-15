@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UCVPOS Database ERD</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+        });
+    </script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        .container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        h3 {
+            color: #16a085;
+            margin-top: 20px;
+        }
+
+        .description {
+            margin-bottom: 30px;
+            color: #666;
+            text-align: center;
+            font-size: 1.1em;
+        }
+
+        .mermaid {
+            margin: 40px 0;
+            text-align: center;
+        }
+
+        .content-section {
+            line-height: 1.6;
+        }
+
+        ul {
+            list-style-type: square;
+        }
+
+        code {
+            background-color: #f8f8f8;
+            padding: 2px 5px;
+            border-radius: 4px;
+            color: #e74c3c;
+            font-family: Consolas, monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>UCVPOS Database Documentation</h1>
+        <div class="description">
+            Entity Relationship Diagram (ERD) & Schema Reference
+        </div>
+
+        <div class="mermaid">
+            erDiagram
+            users {
+            int id PK
+            string username
+            string password_hash
+            string role "admin, cashier"
+            string full_name
+            boolean is_active
+            timestamp created_at
+            timestamp last_login
+            }
+
+            products {
+            int id PK
+            string barcode UK
+            string name
+            decimal price "Selling Price"
+            decimal cost_price "Buying Price"
+            int stock_quantity
+            int min_stock_level
+            string batch_number
+            date expiry_date
+            boolean prescription_required
+            timestamp created_at
+            timestamp updated_at
+            }
+
+            sales {
+            int id PK
+            timestamp sale_date
+            decimal total_amount
+            string status "completed, voided"
+            string cashier_name
+            timestamp voided_at
+            text void_reason
+            string discount_type "SC, PWD, None"
+            string discount_id "Link to Customer ID Number"
+            decimal discount_amount
+            decimal vat_exempt_amount
+            }
+
+            sale_items {
+            int id PK
+            int sale_id FK
+            int product_id FK
+            string product_name "Snapshot"
+            int quantity
+            decimal unit_price "Snapshot"
+            decimal original_cost "Snapshot"
+            decimal subtotal
+            string batch_number
+            }
+
+            payments {
+            int id PK
+            int sale_id FK
+            decimal amount_tendered
+            decimal change_given
+            string payment_method "cash"
+            timestamp payment_date
+            }
+
+            void_logs {
+            int id PK
+            int sale_id FK
+            text reason
+            string voided_by
+            timestamp voided_at
+            decimal original_total
+            }
+
+            audit_logs {
+            int id PK
+            string action
+            string entity_type
+            int entity_id
+            text details
+            timestamp timestamp
+            }
+
+            settings {
+            int id PK
+            string setting_key UK
+            text setting_value
+            timestamp updated_at
+            }
+
+            customers {
+            int id PK
+            string name
+            string id_number "Unique with Type"
+            string type "SC, PWD"
+            string address
+            string contact_number
+            timestamp created_at
+            }
+
+            %% Relationships
+            sales ||--|{ sale_items : "contains (1:N)"
+            products ||--|{ sale_items : "product info (1:N)"
+            sales ||--|{ payments : "has (1:N)"
+            sales ||--o| void_logs : "logs to (1:1)"
+            customers ||--o{ sales : "receives discount (1:N)"
+        </div>
+
+        <div class="content-section">
+            <h2>Schema Overview</h2>
+            <p>The system uses a MySQL database with the following core entities:</p>
+            <ul>
+                <li><strong>Inventory</strong>: <code>products</code></li>
+                <li><strong>Transactions</strong>: <code>sales</code>, <code>sale_items</code>, <code>payments</code>
+                </li>
+                <li><strong>CRM</strong>: <code>customers</code> (Senior Citizens / PWDs)</li>
+                <li><strong>Security & Auditing</strong>: <code>users</code>, <code>audit_logs</code>,
+                    <code>void_logs</code>
+                </li>
+                <li><strong>Configuration</strong>: <code>settings</code></li>
+            </ul>
+
+            <h2>Table Descriptions</h2>
+
+            <h3>Inventory</h3>
+            <ul>
+                <li><strong>products</strong>: Stores all inventory items.
+                    <code>cost_price</code> (Buying Price) and <code>price</code> (Selling Price) allow for profit
+                    calculation.
+                    <code>stock_quantity</code> is updated automatically upon sale completion.
+                </li>
+            </ul>
+
+            <h3>Sales & Transactions</h3>
+            <ul>
+                <li><strong>sales</strong>: The header table for transactions. Stores <code>total_amount</code>, status,
+                    and discount details.
+                    <code>discount_id</code> logically links to the <code>customers.id_number</code>.
+                </li>
+                <li><strong>sale_items</strong>: Detailed line items for each sale. It snapshots
+                    <code>unit_price</code>, <code>original_cost</code>, and <code>product_name</code> at the time of
+                    sale. This preserves historical profit margin data even if product costs change later.
+                </li>
+                <li><strong>payments</strong>: Records payment details such as amount tendered and change given.</li>
+            </ul>
+
+            <h3>Customer Management (CRM)</h3>
+            <ul>
+                <li><strong>customers</strong>: Stores persistent data for Senior Citizens (SC) and Persons with
+                    Disability (PWD).
+                    Used for faster checkout by retrieving ID numbers and addresses across sessions.
+                </li>
+            </ul>
+
+            <h3>Auditing & Security</h3>
+            <ul>
+                <li><strong>audit_logs</strong>: A generic system-wide audit trail for critical actions (e.g., login,
+                    inventory updates).</li>
+                <li><strong>void_logs</strong>: Specific, immutable logs for voided sales, ensuring security and
+                    accountability for cancelled transactions.</li>
+                <li><strong>users</strong>: Stores system users with role-based access control (RBAC).</li>
+            </ul>
+
+            <h3>System Configuration</h3>
+            <ul>
+                <li><strong>settings</strong>: Key-value store for system configurations (e.g., store name, receipt
+                    headers, backup paths).</li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>
