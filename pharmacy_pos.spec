@@ -33,6 +33,7 @@ a = Analysis(
         'openpyxl.utils',
         'openpyxl.workbook',
         'openpyxl.worksheet',
+        'pyzipper',
     ],
     hookspath=[],
     hooksconfig={},
