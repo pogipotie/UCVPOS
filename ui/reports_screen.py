@@ -14,6 +14,7 @@ from services.report_service import report_service
 from services.backup_service import backup_service
 from services.auth_service import auth_service
 from services.sales_service import sales_service
+from services.settings_service import settings_service
 from repositories.sales_repo import sales_repo
 from repositories.audit_repo import audit_repo
 from ui.components.custom_calendar import YearDropdownCalendarWidget
@@ -577,6 +578,13 @@ class ReportsScreen(QWidget):
         
         sales = sales_repo.get_sales_by_date_range(start_date, end_date, self.cashier_filter)
         
+        if not sales:
+            self.history_table.setRowCount(0)
+            from ui.components.custom_message_box import CustomErrorDialog
+            dialog = CustomErrorDialog(self, "No Records Found", "No transactions found for the selected date range.")
+            dialog.exec()
+            return
+
         self.history_table.setRowCount(len(sales))
         
         for row, sale in enumerate(sales):
@@ -721,8 +729,17 @@ class ReportsScreen(QWidget):
         qdate = self.daily_date.date()
         report_date = date(qdate.year(), qdate.month(), qdate.day())
         
-        filepath = report_service.export_sales_to_csv(report_date, report_date, self.cashier_filter)
-        QMessageBox.information(self, "Export Complete", f"Report saved to:\n{filepath}")
+        # Get default path
+        default_dir = settings_service.get("system", "reports_path") or os.path.expanduser("~/Documents")
+        default_filename = f"daily_sales_{report_date.isoformat()}.csv"
+        
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "Save Report", os.path.join(default_dir, default_filename), "CSV Files (*.csv)"
+        )
+        
+        if filepath:
+            saved_path = report_service.export_sales_to_csv(report_date, report_date, self.cashier_filter, output_path=filepath)
+            QMessageBox.information(self, "Export Complete", f"Report saved to:\n{saved_path}")
     
     def export_history_excel(self):
         """Export history to Excel"""
@@ -732,13 +749,38 @@ class ReportsScreen(QWidget):
         start_date = date(start_qdate.year(), start_qdate.month(), start_qdate.day())
         end_date = date(end_qdate.year(), end_qdate.month(), end_qdate.day())
         
-        filepath = report_service.export_sales_to_csv(start_date, end_date, self.cashier_filter)
-        QMessageBox.information(self, "Export Complete", f"Report saved to:\n{filepath}")
+        # Get default path
+        default_dir = settings_service.get("system", "reports_path") or os.path.expanduser("~/Documents")
+        default_filename = f"sales_history_{start_date.isoformat()}_to_{end_date.isoformat()}.xlsx"
+        
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "Save Report", os.path.join(default_dir, default_filename), "Excel Files (*.xlsx)"
+        )
+        
+        if filepath:
+            # Use new export_sales_to_excel method (need to add to service)
+            # Or fallback to CSV if Excel not supported yet
+            try:
+                saved_path = report_service.export_sales_to_excel(start_date, end_date, self.cashier_filter, output_path=filepath)
+                QMessageBox.information(self, "Export Complete", f"Report saved to:\n{saved_path}")
+            except AttributeError:
+                # Fallback implementation if method missing
+                saved_path = report_service.export_sales_to_csv(start_date, end_date, self.cashier_filter, output_path=filepath.replace('.xlsx', '.csv'))
+                QMessageBox.information(self, "Export Complete", f"Report saved (as CSV) to:\n{saved_path}")
     
     def export_low_stock(self):
         """Export low stock to CSV"""
-        filepath = report_service.export_inventory_to_csv()
-        QMessageBox.information(self, "Export Complete", f"Report saved to:\n{filepath}")
+        # Get default path
+        default_dir = settings_service.get("system", "reports_path") or os.path.expanduser("~/Documents")
+        default_filename = f"low_stock_{date.today().isoformat()}.csv"
+        
+        filepath, _ = QFileDialog.getSaveFileName(
+            self, "Save Report", os.path.join(default_dir, default_filename), "CSV Files (*.csv)"
+        )
+        
+        if filepath:
+            saved_path = report_service.export_inventory_to_csv(output_path=filepath)
+            QMessageBox.information(self, "Export Complete", f"Report saved to:\n{saved_path}")
     
     def create_backup(self):
         """Create database backup with password protection"""

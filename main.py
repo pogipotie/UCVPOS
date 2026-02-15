@@ -118,8 +118,34 @@ def main():
         # Ensure backup directory exists
         os.makedirs(BACKUP_DIR, exist_ok=True)
         
-        # Initialize database schema
-        initialize_database()
+        
+        # Check if first run (config missing) or init fails
+        import config
+        setup_required = not os.path.exists(config.DB_CONFIG_FILE)
+        
+        if not setup_required:
+            try:
+                initialize_database()
+            except Exception as e:
+                print(f"Database initialization failed: {e}")
+                setup_required = True
+        
+        if setup_required:
+            # Launch Setup Wizard
+            splash.close()
+            from ui.setup_wizard import SetupWizard
+            wizard = SetupWizard()
+            if wizard.exec() == QDialog.DialogCode.Accepted:
+                # Setup successful, retry initialization
+                splash.show()
+                splash.showMessage("Initializing system...", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter, Qt.GlobalColor.white)
+                app.processEvents()
+                initialize_database()
+            else:
+                # Setup cancelled
+                sys.exit(0)
+        
+        # Ensure at least one admin exists
         
         # Ensure at least one admin exists
         splash.showMessage("Checking security...", Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter, Qt.GlobalColor.white)

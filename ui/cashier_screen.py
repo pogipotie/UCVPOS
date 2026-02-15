@@ -23,6 +23,7 @@ from services.compliance_service import compliance_service
 from services.inventory_service import inventory_service
 from services.auth_service import auth_service
 from ui.components.custom_message_box import CustomErrorDialog
+from ui.components.discount_dialog import DiscountDialog
 
 class CashierScreen(QWidget):
     """
@@ -271,8 +272,8 @@ class CashierScreen(QWidget):
         right_layout.addWidget(actions_group)
         
         # 1.5 Navigation Shortcuts
-        nav_group = QGroupBox("Navigation Shortcuts")
-        nav_layout = QVBoxLayout(nav_group)
+        self.nav_group = QGroupBox("Page 1 / 1 (0 items)")
+        nav_layout = QVBoxLayout(self.nav_group)
         nav_layout.setSpacing(10)
         
         # Row 1 (F2 Inventory)
@@ -299,7 +300,9 @@ class CashierScreen(QWidget):
         
         nav_layout.addLayout(row_nav)
         
-        right_layout.addWidget(nav_group)
+
+        
+        right_layout.addWidget(self.nav_group)
         
         # 2. SC/PWD Discount Section
         from PyQt6.QtWidgets import QRadioButton, QButtonGroup
@@ -349,11 +352,11 @@ class CashierScreen(QWidget):
         self.no_discount_radio.setChecked(True)
         # self.no_discount_radio.setStyleSheet("color: #CCCCCC; font-size: 14px;") # Handled by group style
         
-        self.sc_radio = QRadioButton("Senior Citizen (20% + VAT Exempt)")
+        self.sc_radio = QRadioButton("Senior Citizen (F10)")
         # Override text color for SC/PWD to highlight them
         self.sc_radio.setStyleSheet("color: #03DAC6; font-weight: bold;")
         
-        self.pwd_radio = QRadioButton("PWD (20% + VAT Exempt)")
+        self.pwd_radio = QRadioButton("PWD (F11)")
         self.pwd_radio.setStyleSheet("color: #03DAC6; font-weight: bold;")
         
         self.discount_button_group.addButton(self.no_discount_radio, 0)
@@ -436,6 +439,12 @@ class CashierScreen(QWidget):
         # F1 - New Sale (Handled by MainWindow)
         # QShortcut(QKeySequence("F1"), self, self.start_new_sale)
         
+        # F10 - SC Discount (Simulate click)
+        QShortcut(QKeySequence("F10"), self, self.sc_radio.animateClick)
+
+        # F11 - PWD Discount
+        QShortcut(QKeySequence("F11"), self, self.pwd_radio.animateClick)
+
         # F12 - Checkout
         QShortcut(QKeySequence("F12"), self, self.process_checkout)
         
@@ -469,6 +478,17 @@ class CashierScreen(QWidget):
             self.display_total_label.setText("₱0.00")
         self.show_status("New sale started", "success")
         self.barcode_input.focus_input()
+        self.update_cart_title()
+
+    def update_cart_title(self):
+        """Update the navigation group title with item count"""
+        count = 0
+        if sales_service.current_session:
+            for item in sales_service.current_session.cart:
+                count += item.quantity
+        
+        if hasattr(self, 'nav_group'):
+            self.nav_group.setTitle(f"Page 1 / 1 ({int(count)} items)")
     
     def on_barcode_scanned(self, barcode: str):
         """Handle barcode scan or product name search"""
@@ -665,7 +685,9 @@ class CashierScreen(QWidget):
                     self,
                     discount_type=session.discount_type,
                     discount_amount=session.sc_pwd_discount,
-                    original_total=session.total
+                    original_total=session.total,
+                    discount_id=session.discount_id,
+                    customer_name=session.customer_name
                 )
                 success_dialog.exec()
                 
@@ -686,6 +708,8 @@ class CashierScreen(QWidget):
             if hasattr(self, 'display_total_label'):
                 display_amount = session.final_total if session.is_discounted else session.total
                 self.display_total_label.setText(f"₱{display_amount:,.2f}")
+            
+            self.update_cart_title()
     
     def show_status(self, message: str, status_type: str = "info"):
         """Show status message"""
@@ -723,14 +747,36 @@ class CashierScreen(QWidget):
         
         # Map button to discount type
         button_id = self.discount_button_group.id(button)
-        if button_id == 1:
-            session.discount_type = 'SC'
-            self.show_status("Senior Citizen discount applied (20% + VAT Exempt)", "success")
-        elif button_id == 2:
-            session.discount_type = 'PWD'
-            self.show_status("PWD discount applied (20% + VAT Exempt)", "success")
+        
+        if button_id in [1, 2]: # SC or PWD
+            # Show dialog to get ID
+            # Pass the type to avoid redundant selection
+            dtype = "SC" if button_id == 1 else "PWD"
+            dialog = DiscountDialog(self, discount_type=dtype)
+            
+            if dialog.exec():
+                # Apply discount with ID and Name
+                sales_service.apply_discount(
+                    dialog.selected_type, 
+                    dialog.id_number,
+                    customer_name=dialog.customer_name
+                )
+                
+                # Sync radio button if dialog selection changed
+                if dialog.selected_type == "SC":
+                    self.sc_radio.setChecked(True)
+                    self.show_status(f"Senior Citizen discount applied (ID: {dialog.id_number})", "success")
+                else:
+                    self.pwd_radio.setChecked(True)
+                    self.show_status(f"PWD discount applied (ID: {dialog.id_number})", "success")
+            else:
+                # Cancelled - revert to None
+                self.no_discount_radio.setChecked(True)
+                sales_service.remove_discount()
+                
         else:
-            session.discount_type = None
+            # None selected
+            sales_service.remove_discount()
             self.show_status("Discount removed", "info")
         
         # Update cart display

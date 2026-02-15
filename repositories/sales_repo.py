@@ -18,9 +18,18 @@ class SalesRepository:
         try:
             # Insert sale header
             cursor = db.execute(
-                """INSERT INTO sales (total_amount, status, cashier_name)
-                   VALUES (?, ?, ?)""",
-                (sale.total_amount, sale.status, sale.cashier_name)
+                """INSERT INTO sales (total_amount, status, cashier_name, 
+                   discount_type, discount_id, discount_amount, vat_exempt_amount)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    sale.total_amount, 
+                    sale.status, 
+                    sale.cashier_name,
+                    sale.discount_type,
+                    sale.discount_id,
+                    sale.discount_amount,
+                    sale.vat_exempt_amount
+                )
             )
             sale_id = cursor.lastrowid
             
@@ -271,7 +280,11 @@ class SalesRepository:
             status=row['status'],
             cashier_name=row['cashier_name'],
             voided_at=row['voided_at'],
-            void_reason=row['void_reason']
+            void_reason=row['void_reason'],
+            discount_type=row.get('discount_type'),
+            discount_id=row.get('discount_id'),
+            discount_amount=float(row.get('discount_amount') or 0.0),
+            vat_exempt_amount=float(row.get('vat_exempt_amount') or 0.0)
         )
     
     def _row_to_sale_item(self, row) -> SaleItem:

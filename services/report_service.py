@@ -104,13 +104,19 @@ class ReportService:
             'generated_at': datetime.now()
         }
     
-    def export_to_csv(self, data: List[Dict], filename: str, 
-                      headers: List[str] = None) -> str:
+    def export_to_csv(self, data: List[Dict], filename: str = None, 
+                      headers: List[str] = None, output_path: str = None) -> str:
         """Export data to CSV file"""
-        exports_dir = os.path.join(BASE_DIR, "exports")
-        os.makedirs(exports_dir, exist_ok=True)
         
-        filepath = os.path.join(exports_dir, filename)
+        if output_path:
+            filepath = output_path
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        else:
+            if not filename:
+                raise ValueError("Filename required if output_path is not provided")
+            exports_dir = os.path.join(BASE_DIR, "exports")
+            os.makedirs(exports_dir, exist_ok=True)
+            filepath = os.path.join(exports_dir, filename)
         
         with open(filepath, 'w', newline='', encoding='utf-8') as f:
             if data:
@@ -122,7 +128,7 @@ class ReportService:
         
         return filepath
     
-    def export_sales_to_csv(self, start_date: date, end_date: date, cashier_username: str = None) -> str:
+    def export_sales_to_csv(self, start_date: date, end_date: date, cashier_username: str = None, output_path: str = None) -> str:
         """Export sales data to CSV"""
         sales = sales_repo.get_sales_by_date_range(start_date, end_date, cashier_username)
         
@@ -142,9 +148,30 @@ class ReportService:
             })
         
         filename = f"sales_{start_date.isoformat()}_to_{end_date.isoformat()}.csv"
-        return self.export_to_csv(data, filename)
-    
-    def export_inventory_to_csv(self) -> str:
+        return self.export_to_csv(data, filename, output_path=output_path)
+        
+    def export_sales_to_excel(self, start_date: date, end_date: date, cashier_username: str = None, output_path: str = None) -> str:
+        """Export sales data to Excel"""
+        sales = sales_repo.get_sales_by_date_range(start_date, end_date, cashier_username)
+        
+        data = []
+        for sale in sales:
+            # Fetch items for detail
+            items = sales_repo.get_sale_items(sale.id)
+            products_str = ", ".join([f"{i.product_name} ({i.quantity})" for i in items])
+            
+            data.append({
+                'Sale ID': sale.id,
+                'Date': sale.sale_date,
+                'Items': products_str,
+                'Total': float(sale.total_amount),
+                'Status': sale.status,
+                'Cashier': sale.cashier_name or 'N/A'
+            })
+        
+        filename = f"sales_{start_date.isoformat()}_to_{end_date.isoformat()}.xlsx"
+        return self.export_to_excel(data, filename, sheet_name="Sales History", output_path=output_path)
+    def export_inventory_to_csv(self, output_path: str = None) -> str:
         """Export inventory to CSV"""
         products = product_repo.get_all(limit=100000)
         
@@ -162,20 +189,25 @@ class ReportService:
             })
         
         filename = f"inventory_{date.today().isoformat()}.csv"
-        return self.export_to_csv(data, filename)
+        return self.export_to_csv(data, filename, output_path=output_path)
     
-    def export_to_excel(self, data: List[Dict], filename: str, 
-                        sheet_name: str = 'Data') -> str:
+    def export_to_excel(self, data: List[Dict], filename: str = None, 
+                        sheet_name: str = 'Data', output_path: str = None) -> str:
         """Export data to Excel file"""
         try:
             from openpyxl import Workbook
         except ImportError:
             raise ImportError("openpyxl is required for Excel export")
         
-        exports_dir = os.path.join(BASE_DIR, "exports")
-        os.makedirs(exports_dir, exist_ok=True)
-        
-        filepath = os.path.join(exports_dir, filename)
+        if output_path:
+            filepath = output_path
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        else:
+            if not filename:
+                 raise ValueError("Filename required if output_path is not provided")
+            exports_dir = os.path.join(BASE_DIR, "exports")
+            os.makedirs(exports_dir, exist_ok=True)
+            filepath = os.path.join(exports_dir, filename)
         
         wb = Workbook()
         ws = wb.active

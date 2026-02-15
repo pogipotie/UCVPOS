@@ -98,6 +98,13 @@ class CustomSuccessDialog(QDialog):
                 background-color: #016E6D;
             }
         """)
+        self.btn_ok.clicked.connect(self.accept)
+        
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        btn_layout.addWidget(self.btn_ok)
+        btn_layout.addStretch()
+        
         container_layout.addLayout(btn_layout)
         
         layout.addWidget(self.container)

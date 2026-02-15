@@ -62,6 +62,12 @@ class Sale:
     cashier_name: Optional[str] = None
     voided_at: Optional[datetime] = None
     void_reason: Optional[str] = None
+    discount_type: Optional[str] = None  # 'SC' or 'PWD'
+    discount_id: Optional[str] = None    # ID number
+    discount_amount: float = 0.0
+    vat_exempt_amount: float = 0.0
+    customer_name: Optional[str] = None # Snapshot of customer name
+    customer_id: Optional[int] = None   # Link to Customer model
     items: List['SaleItem'] = field(default_factory=list)
     
     @property
@@ -131,3 +137,16 @@ class User:
     @property
     def is_admin(self) -> bool:
         return self.role == "admin"
+
+
+@dataclass
+class Customer:
+    """Customer model (SC/PWD)"""
+    id: Optional[int] = None
+    name: str = ""
+    id_number: str = ""
+    type: str = "SC" # SC or PWD
+    address: Optional[str] = None
+    contact_number: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None

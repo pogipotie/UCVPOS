@@ -99,6 +99,21 @@ class SettingsScreen(QWidget):
         path_layout.addWidget(browse_btn)
         
         system_layout.addRow(self._create_label("Backup Location:"), path_layout)
+
+        # Report Save Location
+        report_path_layout = QHBoxLayout()
+        self.report_path = self._create_input("")
+        self.report_path.setReadOnly(True)
+        
+        browse_report_btn = QPushButton("Browse...")
+        browse_report_btn.setFixedWidth(100)
+        browse_report_btn.clicked.connect(self.browse_report_path)
+        browse_report_btn.setStyleSheet(browse_btn.styleSheet())
+        
+        report_path_layout.addWidget(self.report_path)
+        report_path_layout.addWidget(browse_report_btn)
+        
+        system_layout.addRow(self._create_label("Reports Save Location:"), report_path_layout)
         
         content_layout.addWidget(system_group)
         
@@ -141,6 +156,7 @@ class SettingsScreen(QWidget):
         
         system = settings.get('system', {})
         self.backup_path.setText(system.get('backup_path', ''))
+        self.report_path.setText(system.get('reports_path', ''))
         
     def save_settings(self):
         """Save fields back to service"""
@@ -157,7 +173,8 @@ class SettingsScreen(QWidget):
             },
             "system": {
                 "backup_path": self.backup_path.text(),
-                "printer_name": "" # Preserve existing? Or just overwrite as Empty for now
+                "reports_path": self.report_path.text(),
+                "printer_name": "" 
             }
         }
         
@@ -175,6 +192,11 @@ class SettingsScreen(QWidget):
         path = QFileDialog.getExistingDirectory(self, "Select Backup Folder")
         if path:
             self.backup_path.setText(path)
+
+    def browse_report_path(self):
+        path = QFileDialog.getExistingDirectory(self, "Select Reports Folder")
+        if path:
+            self.report_path.setText(path)
             
     def _create_input(self, placeholder):
         inp = QLineEdit()

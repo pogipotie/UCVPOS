@@ -22,7 +22,9 @@ class SaleSession:
     started_at: datetime = field(default_factory=datetime.now)
     cashier_name: Optional[str] = None
     discount_type: Optional[str] = None  # 'SC', 'PWD', or None
+    discount_type: Optional[str] = None  # 'SC', 'PWD', or None
     discount_id: Optional[str] = None    # SC/PWD ID number
+    customer_name: Optional[str] = None  # Store customer name for session
     
     @property
     def total(self) -> float:
@@ -178,6 +180,25 @@ class SalesService:
         
         return False, "Item not in cart"
     
+        return False, "Item not in cart"
+    
+    def apply_discount(self, discount_type: str, discount_id: str, customer_name: str = None) -> bool:
+        """Apply SC/PWD discount"""
+        if not self.current_session:
+            return False
+        self.current_session.discount_type = discount_type
+        self.current_session.discount_id = discount_id
+        self.current_session.customer_name = customer_name
+        return True
+        
+    def remove_discount(self) -> bool:
+        """Remove discount"""
+        if not self.current_session:
+            return False
+        self.current_session.discount_type = None
+        self.current_session.discount_id = None
+        return True
+
     def clear_cart(self) -> Tuple[bool, str]:
         """Clear all items from cart"""
         if not self.current_session:
@@ -212,8 +233,35 @@ class SalesService:
             sale = Sale(
                 total_amount=self.current_session.total,
                 status="completed",
-                cashier_name=self.current_session.cashier_name
-            )
+                cashier_name=self.current_session.cashier_name,
+                discount_type=self.current_session.discount_type,
+                discount_id=self.current_session.discount_id,
+                customer_name=self.current_session.customer_name,
+                discount_amount=self.current_session.sc_pwd_discount,
+                vat_exempt_amount=self.current_session.vat_exempt_total if self.current_session.is_discounted else 0.0
+            ) 
+            
+            # Handle Customer Persistence (Auto-save/Link)
+            if self.current_session.is_discounted and self.current_session.discount_id and self.current_session.customer_name:
+                from repositories.customer_repo import customer_repo
+                from database.models import Customer
+                
+                # Check if exists
+                existing = customer_repo.get_by_id_number(self.current_session.discount_id, self.current_session.discount_type)
+                
+                if existing:
+                    sale.customer_id = existing.id
+                else:
+                    # Create new customer
+                    new_customer = Customer(
+                        name=self.current_session.customer_name,
+                        id_number=self.current_session.discount_id,
+                        type=self.current_session.discount_type
+                    )
+                    created = customer_repo.create(new_customer)
+                    if created:
+                        sale.customer_id = created.id
+            
             
             # Prepare sale items
             sale_items = []

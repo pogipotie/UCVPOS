@@ -8,7 +8,8 @@ class SaleSuccessDialog(QDialog):
     """Custom dialog for sale completion with premium UI"""
     
     def __init__(self, sale_id: int, total: float, paid: float, change: float, items: list, parent=None,
-                 discount_type: str = None, discount_amount: float = 0.0, original_total: float = None):
+                 discount_type: str = None, discount_amount: float = 0.0, original_total: float = None,
+                 discount_id: str = None, customer_name: str = None):
         super().__init__(parent)
         self.sale_id = sale_id
         self.total = total  # This is the final_total if discounted
@@ -18,6 +19,8 @@ class SaleSuccessDialog(QDialog):
         self.discount_type = discount_type
         self.discount_amount = discount_amount
         self.original_total = original_total or total
+        self.discount_id = discount_id
+        self.customer_name = customer_name
         self.setup_ui()
         
     def setup_ui(self):
@@ -231,7 +234,18 @@ class SaleSuccessDialog(QDialog):
         c.setFont("Helvetica", 8)
         c.drawString(left_margin, y, f"TXN: #{self.sale_id}")
         c.drawRightString(page_width - right_margin, y, timestamp.strftime("%Y-%m-%d %H:%M"))
-        y -= 5 * mm
+        y -= 4 * mm
+        
+        # Customer Info (if SC/PWD)
+        if self.customer_name:
+            c.drawString(left_margin, y, f"Customer: {self.customer_name}")
+            y -= 4 * mm
+        if self.discount_type and self.discount_id:
+            label = "SC ID" if self.discount_type == "SC" else "PWD ID"
+            c.drawString(left_margin, y, f"{label}: {self.discount_id}")
+            y -= 4 * mm
+            
+        y -= 1 * mm
         y = draw_line(y)
         
         # Items Header
@@ -263,25 +277,54 @@ class SaleSuccessDialog(QDialog):
         
         # VAT breakdown for receipt
         tax_rate = settings_service.get('financial', 'tax_rate') or 12.0
-        vat_amount = self.total - (self.total / (1 + tax_rate / 100)) if tax_rate > 0 else 0
-        net_amount = self.total - vat_amount
         
-        # Net Amount
-        c.setFont("Helvetica", 9)
-        c.drawString(left_margin + 15*mm, y, "NET:")
-        c.drawRightString(page_width - right_margin, y, f"{currency}{net_amount:,.2f}")
-        y -= 4 * mm
-        
-        # VAT
-        c.drawString(left_margin + 15*mm, y, f"VAT ({tax_rate:.0f}%):")
-        c.drawRightString(page_width - right_margin, y, f"{currency}{vat_amount:,.2f}")
-        y -= 5 * mm
-        
-        # Totals
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(left_margin + 15*mm, y, "TOTAL:")
-        c.drawRightString(page_width - right_margin, y, f"{currency}{self.total:,.2f}")
-        y -= 5 * mm
+        if self.discount_type:
+            # SC/PWD Logic
+            # 1. Gross Amount (Original Total)
+            # 2. Less: 20% Discount
+            # 3. VAT Exempt Sale
+            
+            c.setFont("Helvetica", 9)
+            c.drawString(left_margin + 15*mm, y, "GROSS:")
+            c.drawRightString(page_width - right_margin, y, f"{currency}{self.original_total:,.2f}")
+            y -= 4 * mm
+            
+            c.drawString(left_margin + 15*mm, y, "VAT EXEMPT SALE:")
+            vat_exempt = self.original_total / 1.12
+            c.drawRightString(page_width - right_margin, y, f"{currency}{vat_exempt:,.2f}")
+            y -= 4 * mm
+            
+            c.drawString(left_margin + 15*mm, y, "LESS: 20% DISC:")
+            c.drawRightString(page_width - right_margin, y, f"-{currency}{self.discount_amount:,.2f}")
+            y -= 5 * mm
+            
+            # Total
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(left_margin + 15*mm, y, "TOTAL DUE:")
+            c.drawRightString(page_width - right_margin, y, f"{currency}{self.total:,.2f}")
+            y -= 5 * mm
+            
+        else:
+            # Normal Logic
+            vat_amount = self.total - (self.total / (1 + tax_rate / 100)) if tax_rate > 0 else 0
+            net_amount = self.total - vat_amount
+            
+            # Net Amount
+            c.setFont("Helvetica", 9)
+            c.drawString(left_margin + 15*mm, y, "NET:")
+            c.drawRightString(page_width - right_margin, y, f"{currency}{net_amount:,.2f}")
+            y -= 4 * mm
+            
+            # VAT
+            c.drawString(left_margin + 15*mm, y, f"VAT ({tax_rate:.0f}%):")
+            c.drawRightString(page_width - right_margin, y, f"{currency}{vat_amount:,.2f}")
+            y -= 5 * mm
+            
+            # Totals
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(left_margin + 15*mm, y, "TOTAL:")
+            c.drawRightString(page_width - right_margin, y, f"{currency}{self.total:,.2f}")
+            y -= 5 * mm
         
         c.setFont("Helvetica", 9)
         c.drawString(left_margin + 15*mm, y, "CASH:")

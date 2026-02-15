@@ -28,7 +28,11 @@ CREATE TABLE IF NOT EXISTS sales (
     status VARCHAR(50) DEFAULT 'completed',
     cashier_name VARCHAR(255),
     voided_at TIMESTAMP NULL,
-    void_reason TEXT
+    void_reason TEXT,
+    discount_type VARCHAR(50) NULL,
+    discount_id VARCHAR(100) NULL,
+    discount_amount DECIMAL(10, 2) DEFAULT 0.00,
+    vat_exempt_amount DECIMAL(10, 2) DEFAULT 0.00
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Sale line items
@@ -89,6 +93,20 @@ CREATE TABLE IF NOT EXISTS users (
     last_login TIMESTAMP NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+-- Customers table for SC/PWD
+CREATE TABLE IF NOT EXISTS customers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    id_number VARCHAR(100) NOT NULL,
+    type VARCHAR(50) NOT NULL,  -- 'SC' or 'PWD'
+    address TEXT,
+    contact_number VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_id_type (id_number, type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Settings table for application configuration
 CREATE TABLE IF NOT EXISTS settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -107,6 +125,8 @@ CREATE INDEX idx_products_stock ON products(stock_quantity);
 CREATE INDEX idx_sales_date ON sales(sale_date);
 CREATE INDEX idx_sales_status ON sales(status);
 CREATE INDEX idx_audit_timestamp ON audit_logs(timestamp);
+CREATE INDEX idx_customers_name ON customers(name);
+CREATE INDEX idx_customers_id_number ON customers(id_number);
 """
 
 def initialize_mysql_database():
@@ -156,6 +176,30 @@ def initialize_mysql_database():
             pass
         else:
             print(f"Migration note (original_cost): {e}")
+
+    # Try to add discount columns to sales (ignore if exists - error 1060)
+    try:
+        db.execute("ALTER TABLE sales ADD COLUMN discount_type VARCHAR(50) NULL")
+        db.execute("ALTER TABLE sales ADD COLUMN discount_id VARCHAR(100) NULL")
+        db.execute("ALTER TABLE sales ADD COLUMN discount_amount DECIMAL(10, 2) DEFAULT 0.00")
+        db.execute("ALTER TABLE sales ADD COLUMN vat_exempt_amount DECIMAL(10, 2) DEFAULT 0.00")
+        print("Migrating: Added discount columns to sales table.")
+    except Exception as e:
+        if '1060' in str(e):  # Duplicate column name
+            pass
+        else:
+            print(f"Migration note (discount columns): {e}")
+
+    # Try to add customer columns to sales
+    try:
+        db.execute("ALTER TABLE sales ADD COLUMN customer_name VARCHAR(255) NULL")
+        db.execute("ALTER TABLE sales ADD COLUMN customer_id INT NULL")
+        print("Migrating: Added customer columns to sales table.")
+    except Exception as e:
+        if '1060' in str(e):
+             pass
+        else:
+             print(f"Migration note (customer columns): {e}")
     
     db.commit()
     print("MySQL Database initialized successfully")

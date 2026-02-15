@@ -28,14 +28,28 @@ ALLOW_NEGATIVE_STOCK = False
 # Database Type: 'sqlite' or 'mysql'
 DB_TYPE = 'mysql'
 
-# MySQL Configuration (XAMPP Defaults)
+# MySQL Configuration
+DB_CONFIG_FILE = os.path.join(BASE_DIR, "db_config.json")
+
+# Default Config
 MYSQL_CONFIG = {
     'host': 'localhost',
+    'port': 3306,
     'user': 'root',
     'password': '',
     'database': 'ucvpos_db',
     'raise_on_warnings': True
 }
+
+# Try to load from file
+import json
+if os.path.exists(DB_CONFIG_FILE):
+    try:
+        with open(DB_CONFIG_FILE, 'r') as f:
+            saved_config = json.load(f)
+            MYSQL_CONFIG.update(saved_config)
+    except Exception as e:
+        print(f"Error loading db_config.json: {e}")
 
 import sys
 

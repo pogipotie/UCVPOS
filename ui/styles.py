@@ -406,3 +406,44 @@ LOW_STOCK_STYLE = "color: #FFB74D; font-weight: bold;"
 EXPIRED_STYLE = "color: #CF6679; font-weight: bold; text-decoration: line-through;"
 OUT_OF_STOCK_STYLE = "color: #666666; font-style: italic;"
 
+class Styles:
+    """Helper class for common styles"""
+    DARK_THEME = MAIN_STYLESHEET
+    
+    INPUT_STYLE = """
+        QLineEdit {
+            background-color: #2C2C2C;
+            color: #FFFFFF;
+            border: 1px solid #333333;
+            border-radius: 0px;
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+        QLineEdit:focus {
+            border: 1px solid #03DAC6;
+        }
+    """
+    
+    BTN_PRIMARY = """
+        QPushButton {
+            background-color: #03DAC6;
+            color: #000000;
+            border: none;
+            font-weight: bold;
+            padding: 10px;
+        }
+        QPushButton:hover { background-color: #05E5D0; }
+        QPushButton:pressed { background-color: #018786; }
+    """
+    
+    BTN_SECONDARY = """
+        QPushButton {
+            background-color: transparent;
+            border: 1px solid #666666;
+            color: #E0E0E0;
+            padding: 10px;
+        }
+        QPushButton:hover { border-color: #999999; color: #FFFFFF; }
+        QPushButton:pressed { background-color: #333333; }
+    """
+
