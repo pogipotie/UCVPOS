@@ -63,8 +63,8 @@ class SettingsService:
                     value = json.dumps(values)
                     db.execute(
                         "INSERT INTO settings (setting_key, setting_value) VALUES (%s, %s) "
-                        "ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
-                        (key, value)
+                    "ON DUPLICATE KEY UPDATE setting_value = %s",
+                    (key, value, value)
                     )
                 db.commit()
                 print("Settings migrated from settings.json to database")
@@ -86,8 +86,8 @@ class SettingsService:
                 value = json.dumps(values)
                 db.execute(
                     "INSERT INTO settings (setting_key, setting_value) VALUES (%s, %s) "
-                    "ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
-                    (section, value)
+                    "ON DUPLICATE KEY UPDATE setting_value = %s",
+                    (section, value, value)
                 )
             db.commit()
         except Exception as e:
@@ -155,8 +155,8 @@ class SettingsService:
             section_value = json.dumps(settings[section])
             db.execute(
                 "INSERT INTO settings (setting_key, setting_value) VALUES (%s, %s) "
-                "ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
-                (section, section_value)
+                "ON DUPLICATE KEY UPDATE setting_value = %s",
+                (section, section_value, section_value)
             )
             db.commit()
             self._settings_cache = settings
@@ -174,8 +174,8 @@ class SettingsService:
                 section_value = json.dumps(values)
                 db.execute(
                     "INSERT INTO settings (setting_key, setting_value) VALUES (%s, %s) "
-                    "ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)",
-                    (section, section_value)
+                    "ON DUPLICATE KEY UPDATE setting_value = %s",
+                    (section, section_value, section_value)
                 )
             db.commit()
             self._settings_cache = new_settings

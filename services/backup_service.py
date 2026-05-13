@@ -7,14 +7,33 @@ import shutil
 import subprocess
 from datetime import datetime
 from config import DATABASE_PATH, BACKUP_DIR, DB_TYPE, MYSQL_CONFIG
+from services.settings_service import settings_service
 
 
 class BackupService:
     """Database backup and restore functionality"""
     
+    @property
+    def backup_dir(self):
+        # Always fetch the latest backup path from settings
+        custom_path = settings_service.get("system", "backup_path")
+        if custom_path:
+            path = custom_path
+        else:
+            path = BACKUP_DIR
+            
+        try:
+            os.makedirs(path, exist_ok=True)
+        except Exception as e:
+            print(f"Error creating backup directory {path}: {e}")
+            path = BACKUP_DIR
+            os.makedirs(path, exist_ok=True)
+            
+        return path
+    
     def __init__(self):
-        self.backup_dir = BACKUP_DIR
-        os.makedirs(self.backup_dir, exist_ok=True)
+        # Initialization logic can be empty as backup_dir is now a property
+        pass
     
     def create_backup(self, custom_name: str = None) -> tuple[bool, str, str]:
         """
