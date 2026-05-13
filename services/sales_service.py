@@ -228,8 +228,10 @@ class SalesService:
         
         if not self.current_session.cart:
             return False, "Cart is empty", None
+            
+        amount_to_pay = self.current_session.final_total if self.current_session.is_discounted else self.current_session.total
         
-        if amount_tendered < self.current_session.total:
+        if round(amount_tendered, 2) < round(amount_to_pay, 2):
             return False, "Insufficient payment amount", None
         
         try:
