@@ -326,9 +326,9 @@ class PaymentDialog(QDialog):
             text = self.amount_input.text().replace(",", "").replace("₱", "")
             if text:
                 amount = float(text)
-                change = amount - self.total_amount
+                change = round(amount - self.total_amount, 2)
                 
-                if round(change, 2) >= 0:
+                if change >= 0:
                     self.change_display.setText(f"₱{change:,.2f}")
                     self.change_display.setStyleSheet("color: #00BF6D; font-size: 32px; font-weight: bold;")
                     self.confirm_btn.setEnabled(True)
