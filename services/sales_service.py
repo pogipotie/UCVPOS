@@ -285,7 +285,8 @@ class SalesService:
             sale_id = sales_repo.create_sale(sale, sale_items)
             
             # Record payment
-            change = amount_tendered - self.current_session.total
+            amount_to_pay = self.current_session.final_total if self.current_session.is_discounted else self.current_session.total
+            change = amount_tendered - amount_to_pay
             payment = Payment(
                 sale_id=sale_id,
                 amount_tendered=amount_tendered,
@@ -303,7 +304,7 @@ class SalesService:
                 action="SALE_COMPLETE",
                 entity_type="sale",
                 entity_id=sale_id,
-                details=f"Sale completed. Total: {self.current_session.total:.2f}, Items: {len(sale_items)}"
+                details=f"Sale completed. Total: {amount_to_pay:.2f}, Items: {len(sale_items)}"
             )
             
             # Clear the session
