@@ -12,6 +12,7 @@ from PyQt6.QtGui import QColor, QFont, QDoubleValidator, QIntValidator
 from database.models import Product
 from datetime import date
 from ui.components.custom_calendar import YearDropdownCalendarWidget
+from ui.responsive_utils import apply_responsive_sizing
 
 
 class ProductFormDialog(QDialog):
@@ -25,7 +26,7 @@ class ProductFormDialog(QDialog):
         # Window Setup
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.resize(700, 550)
+        apply_responsive_sizing(self, 0.40, 0.60, 600, 450, 800, 700)
         
         # Dragging state
         self.old_pos = None

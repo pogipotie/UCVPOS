@@ -9,6 +9,7 @@ from PyQt6.QtCore import Qt
 import json
 import config
 from database.connection import db
+from ui.responsive_utils import apply_responsive_sizing
 
 class SetupWizard(QWizard):
     """Wizard to guide user through initial setup"""
@@ -17,7 +18,7 @@ class SetupWizard(QWizard):
         super().__init__()
         self.setWindowTitle("UCVPOS - First Run Setup")
         self.setWizardStyle(QWizard.WizardStyle.ModernStyle)
-        self.resize(600, 400)
+        apply_responsive_sizing(self, 0.35, 0.50, 500, 350, 800, 700)
         
         # Add pages
         self.addPage(DatabasePage())

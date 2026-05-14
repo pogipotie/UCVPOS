@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 from services.auth_service import auth_service
+from ui.responsive_utils import apply_responsive_sizing
 
 class LoginDialog(QDialog):
     """Secure Login Screen"""
@@ -16,7 +17,7 @@ class LoginDialog(QDialog):
         self.setup_ui()
         
     def setup_ui(self):
-        self.setFixedSize(400, 500)
+        apply_responsive_sizing(self, 0.25, 0.55, 350, 400, 500, 700)
         
         # Main layout container with rounded corners/background
         layout = QVBoxLayout(self)

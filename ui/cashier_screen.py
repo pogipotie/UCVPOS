@@ -397,7 +397,7 @@ class CashierScreen(QWidget):
         
         self.display_total_label = QLabel("₱0.00")
         self.display_total_label.setObjectName("totalLabel")
-        self.display_total_label.setStyleSheet("color: #FFFFFF; font-size: 42px; font-weight: bold;")
+        self.display_total_label.setStyleSheet("color: #FFFFFF; font-size: 30px; font-weight: bold;")
         self.display_total_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         total_info.addWidget(self.display_total_label)
         

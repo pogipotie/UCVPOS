@@ -30,12 +30,15 @@ class SaleSuccessDialog(QDialog):
         width = int(screen.width() * 0.35)  # Slightly narrower
         height = int(screen.height() * 0.80) # Slightly shorter
         
-        # Constraints
+        # Constraints - increase height if discounted
         width = max(450, min(width, 600))
-        height = max(650, min(height, 850))
+        if self.discount_type:
+            height = max(750, min(height, 950))  # More space for discount details
+        else:
+            height = max(650, min(height, 850))
         
         self.resize(width, height)
-        self.setMinimumSize(450, 650)
+        self.setMinimumSize(450, 750 if self.discount_type else 650)
         self.setModal(True)
         self.setStyleSheet("background-color: #1A1A2E; color: white;")
         
@@ -137,10 +140,10 @@ class SaleSuccessDialog(QDialog):
         change_layout = QHBoxLayout(change_frame)
         
         change_lbl = QLabel("CHANGE DUE:")
-        change_lbl.setStyleSheet("color: #B0B0B0; font-size: 16px; font-weight: bold;")
+        change_lbl.setStyleSheet("color: #B0B0B0; font-size: 14px; font-weight: bold;")
         
         change_val = QLabel(f"₱{self.change:,.2f}")
-        change_val.setStyleSheet("color: #FFB800; font-size: 32px; font-weight: bold;") # Reduced from 48px
+        change_val.setStyleSheet("color: #FFB800; font-size: 28px; font-weight: bold;") # Reduced from 32px
         
         change_layout.addWidget(change_lbl)
         change_layout.addStretch()
@@ -168,6 +171,9 @@ class SaleSuccessDialog(QDialog):
             QPushButton:pressed { background-color: #00A860; }
         """)
         layout.addWidget(self.done_btn)
+        
+        # Adjust size to fit content properly
+        self.adjustSize()
         
         # Auto focus
         self.done_btn.setFocus()
@@ -352,14 +358,14 @@ class SaleSuccessDialog(QDialog):
         row = QHBoxLayout()
         lbl = QLabel(label)
         if highlight:
-            lbl.setStyleSheet("color: #FFB800; font-size: 16px;")
+            lbl.setStyleSheet("color: #FFB800; font-size: 14px;")
         else:
-            lbl.setStyleSheet("color: #B0B0B0; font-size: 16px;")
+            lbl.setStyleSheet("color: #B0B0B0; font-size: 14px;")
         val = QLabel(value)
         if highlight:
-            val.setStyleSheet("color: #FFB800; font-size: 16px; font-weight: bold;")
+            val.setStyleSheet("color: #FFB800; font-size: 14px; font-weight: bold;")
         else:
-            val.setStyleSheet("color: #FFFFFF; font-size: 16px; font-weight: bold;")
+            val.setStyleSheet("color: #FFFFFF; font-size: 14px; font-weight: bold;")
         val.setAlignment(Qt.AlignmentFlag.AlignRight)
         
         row.addWidget(lbl)

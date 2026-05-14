@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 )
 from ui.styles import Styles
 from repositories.customer_repo import customer_repo
+from ui.responsive_utils import apply_responsive_sizing
 
 from database.models import Customer
 
@@ -17,7 +18,7 @@ class DiscountDialog(QDialog):
         # Frameless styling
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(550, 650) 
+        apply_responsive_sizing(self, 0.35, 0.70, 450, 550, 700, 850) 
         
         self.selected_type = discount_type # SC or PWD (required)
         self.customer = None # The resolved customer object
