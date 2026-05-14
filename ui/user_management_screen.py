@@ -94,7 +94,8 @@ class UserFormDialog(QDialog):
         
         # Role
         self.role = QComboBox()
-        self.role.addItems(["cashier", "admin", "manager"])
+        self.role.addItems(["cashier", "admin"])
+
         self.role.setFixedHeight(40)
         self.role.setStyleSheet("""
             QComboBox {

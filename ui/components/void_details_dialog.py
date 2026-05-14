@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
 import os
+from ui.responsive_utils import apply_responsive_sizing
 
 
 class VoidDetailsDialog(QDialog):
@@ -22,7 +23,7 @@ class VoidDetailsDialog(QDialog):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setModal(True)
-        self.resize(380, 340)
+        apply_responsive_sizing(self, 0.25, 0.38, 320, 300, 480, 480)
         
         # Main Layout
         layout = QVBoxLayout(self)

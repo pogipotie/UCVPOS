@@ -1,13 +1,14 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame, QGraphicsDropShadowEffect
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QColor, QFont
+from ui.responsive_utils import apply_responsive_sizing
 
 class LogoutDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.resize(350, 220)
+        apply_responsive_sizing(self, 0.22, 0.25, 300, 180, 400, 300)
         self.setup_ui()
 
     def setup_ui(self):

@@ -77,7 +77,7 @@ class InventoryScreen(QWidget):
         
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Scan barcode or type name...")
-        self.search_input.setMinimumWidth(300)
+        self.search_input.setMinimumWidth(250)
         self.search_input.textChanged.connect(self.on_search)
         search_layout.addWidget(self.search_input)
         

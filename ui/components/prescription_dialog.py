@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor
+from ui.responsive_utils import apply_responsive_sizing
 
 class PrescriptionDialog(QDialog):
     """
@@ -18,7 +19,7 @@ class PrescriptionDialog(QDialog):
         
     def setup_ui(self):
         self.setWindowTitle("Compliance Check")
-        self.resize(450, 400)
+        apply_responsive_sizing(self, 0.28, 0.45, 400, 350, 600, 600)
         self.setModal(True)
         self.setStyleSheet("background-color: #1A1A2E; color: white;")
         

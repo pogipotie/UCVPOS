@@ -67,7 +67,10 @@ class MainWindow(QMainWindow):
     
     def setup_ui(self):
         self.setWindowTitle(f"{APP_NAME} v{APP_VERSION}")
-        self.setMinimumSize(1200, 800)
+        # Set minimum size for usability, but allow smaller displays to work
+        self.setMinimumSize(1024, 600)
+        # Set default size to recommended resolution
+        self.resize(1920, 1080)
         
         # Central widget
         central = QWidget()

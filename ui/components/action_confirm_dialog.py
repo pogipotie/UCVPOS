@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
 import os
+from ui.responsive_utils import apply_responsive_sizing
 
 class ActionConfirmDialog(QDialog):
     """Custom confirmation dialog (e.g. for delete) with premium UI"""
@@ -24,7 +25,7 @@ class ActionConfirmDialog(QDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
         # Overlay/Background
-        self.resize(420, 360) # Slightly larger than success dialog
+        apply_responsive_sizing(self, 0.28, 0.40, 350, 300, 550, 500)
         self.setModal(True)
         
         # Main Layout
