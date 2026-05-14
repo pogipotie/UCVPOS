@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QColor, QPixmap
 import os
+from ui.responsive_utils import apply_responsive_sizing
 
 class ActionSuccessDialog(QDialog):
     """Custom dialog for generic success actions with premium UI"""
@@ -21,7 +22,7 @@ class ActionSuccessDialog(QDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
         # Overlay/Background
-        self.resize(400, 350)
+        apply_responsive_sizing(self, 0.25, 0.40, 350, 300, 500, 500)
         self.setModal(True)
         
         # Main Layout

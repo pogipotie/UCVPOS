@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
+from ui.responsive_utils import apply_responsive_sizing
 
 
 class PaymentDialog(QDialog):
@@ -24,17 +25,8 @@ class PaymentDialog(QDialog):
     
     def setup_ui(self):
         self.setWindowTitle("Process Payment")
-        # Responsive sizing
-        screen = self.screen().availableGeometry()
-        width = int(screen.width() * 0.40)
-        height = int(screen.height() * 0.85)
-        
-        # Constraints
-        width = max(450, min(width, 600))  # Max width 600px
-        height = max(700, min(height, 900)) # Max height 900px
-        
-        self.resize(width, height)
-        self.setMinimumSize(450, 700)
+        # Responsive sizing with adequate minimum dimensions
+        apply_responsive_sizing(self, 0.40, 0.85, 500, 750, 600, 900)
         self.setModal(True)
         self.setStyleSheet("background-color: #1A1A2E; color: white;")
         
@@ -50,7 +42,7 @@ class PaymentDialog(QDialog):
             total_frame.setStyleSheet("""
                 QFrame {
                     background-color: #1F2B47;
-                    border: 2px solid #FFB800;
+                    border: none;
                     border-radius: 0px;
                     padding: 10px;
                 }
@@ -78,11 +70,11 @@ class PaymentDialog(QDialog):
             # Original Price
             orig_row = QHBoxLayout()
             orig_label = QLabel("Original Price:")
-            orig_label.setStyleSheet("color: #888888; font-size: 14px;")
+            orig_label.setStyleSheet("color: #888888; font-size: 12px;")
             orig_row.addWidget(orig_label)
             orig_row.addStretch()
             orig_value = QLabel(f"₱{self.original_total:,.2f}")
-            orig_value.setStyleSheet("color: #888888; font-size: 14px; text-decoration: line-through;")
+            orig_value.setStyleSheet("color: #888888; font-size: 12px; text-decoration: line-through;")
             orig_row.addWidget(orig_value)
             total_layout.addLayout(orig_row)
             
@@ -90,22 +82,22 @@ class PaymentDialog(QDialog):
             vat_exempt = self.original_total / 1.12
             vat_row = QHBoxLayout()
             vat_label = QLabel("VAT Exempt:")
-            vat_label.setStyleSheet("color: #CCCCCC; font-size: 14px;")
+            vat_label.setStyleSheet("color: #CCCCCC; font-size: 12px;")
             vat_row.addWidget(vat_label)
             vat_row.addStretch()
             vat_value = QLabel(f"₱{vat_exempt:,.2f}")
-            vat_value.setStyleSheet("color: #FFFFFF; font-size: 14px;")
+            vat_value.setStyleSheet("color: #FFFFFF; font-size: 12px;")
             vat_row.addWidget(vat_value)
             total_layout.addLayout(vat_row)
             
             # 20% Discount
             disc_row = QHBoxLayout()
             disc_label = QLabel("Less 20% Discount:")
-            disc_label.setStyleSheet("color: #FFB800; font-size: 14px;")
+            disc_label.setStyleSheet("color: #FFB800; font-size: 12px;")
             disc_row.addWidget(disc_label)
             disc_row.addStretch()
             disc_value = QLabel(f"-₱{self.discount_amount:,.2f}")
-            disc_value.setStyleSheet("color: #FFB800; font-size: 14px; font-weight: bold;")
+            disc_value.setStyleSheet("color: #FFB800; font-size: 12px; font-weight: bold;")
             disc_row.addWidget(disc_value)
             total_layout.addLayout(disc_row)
         else:
@@ -148,7 +140,7 @@ class PaymentDialog(QDialog):
         total_layout.addWidget(total_label)
         
         self.total_display = QLabel(f"₱{self.total_amount:,.2f}")
-        self.total_display.setStyleSheet("color: #00BF6D; font-size: 42px; font-weight: bold;")
+        self.total_display.setStyleSheet("color: #00BF6D; font-size: 30px; font-weight: bold;")
         self.total_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.total_display.setMinimumHeight(60)
         total_layout.addWidget(self.total_display)
@@ -312,6 +304,12 @@ class PaymentDialog(QDialog):
         button_layout.addWidget(self.confirm_btn, 2) # 2x stretch
         
         layout.addLayout(button_layout)
+        
+        # Add stretch to prevent layout compression
+        layout.addStretch()
+        
+        # Adjust dialog size to fit content properly
+        self.adjustSize()
         
         # Focus on amount input
         self.amount_input.setFocus()

@@ -4,6 +4,7 @@ from PyQt6.QtGui import QColor, QFont, QPixmap
 from PyQt6.QtGui import QColor, QFont, QPixmap
 import os
 from config import resource_path
+from ui.responsive_utils import apply_responsive_sizing
 
 class CustomSuccessDialog(QDialog):
     """A premium styled success dialog"""
@@ -13,7 +14,7 @@ class CustomSuccessDialog(QDialog):
         self.message_text = message
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.resize(350, 250)
+        apply_responsive_sizing(self, 0.22, 0.28, 300, 200, 450, 400)
         self.setup_ui()
 
     def setup_ui(self):

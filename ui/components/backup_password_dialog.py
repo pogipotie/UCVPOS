@@ -10,6 +10,7 @@ from PyQt6.QtGui import QPixmap
 import os
 
 from services.auth_service import auth_service
+from ui.responsive_utils import apply_responsive_sizing
 
 
 class BackupPasswordDialog(QDialog):
@@ -26,7 +27,7 @@ class BackupPasswordDialog(QDialog):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setModal(True)
-        self.resize(420, 380)
+        apply_responsive_sizing(self, 0.27, 0.42, 350, 300, 550, 550)
         
         # Main Layout
         layout = QVBoxLayout(self)
